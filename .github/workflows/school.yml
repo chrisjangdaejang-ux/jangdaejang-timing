@@ -1,0 +1,42 @@
+name: 학교알리미 학군 지표 (매월)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 18 3 * *'
+permissions:
+  contents: write
+jobs:
+  s:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+          echo "엔진 불러옴"
+      - run: pip install requests && python scripts/school.py
+        env:
+          SCHOOL_KEY: ${{ secrets.SCHOOL_KEY }}
+      - name: 엔진 데이터 저장 (비공개 저장소)
+        if: always()
+        run: |
+          [ -d engine ] || exit 0
+          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json rebuild_zones.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
+          mkdir -p engine/logs && cp /tmp/*.log engine/logs/ 2>/dev/null || true
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -qm "엔진 데이터 $(date -u +%F)"
+          git pull -q --rebase -X theirs || true
+          git push -q || true
+      - run: |
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/school.json || true
+          git diff --cached --quiet || git commit -m "학교알리미 $(date -u +%F)"
+          git pull --rebase -X theirs origin main || true
+          git push
