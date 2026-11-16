@@ -1,0 +1,159 @@
+name: 실거래 수집 및 사이트 갱신
+
+on:
+  schedule:
+    - cron: '23 0,6,12,18 * * *'   # 하루 4번 (한국시간 03:23·09:23·15:23·21:23) — 처음 전국 채우기를 빨리 끝내고, 이후엔 새 거래 반영
+  workflow_dispatch:            # Actions 탭에서 수동 실행 가능
+    inputs:
+      max_minutes:
+        description: '수집에 쓸 최대 시간(분)'
+        default: '120'
+
+env:
+  PYTHONUNBUFFERED: '1'          # 진행 기록을 바로바로 출력
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+          echo "엔진 불러옴"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 패키지 설치
+        run: pip install requests numpy openpyxl
+
+      - name: 시군구 코드 갱신 (30일마다)
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python scripts/codes.py
+
+      - name: 실거래 수집
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          CALL_BUDGET: '2400'        # 하루 4번 × 2,400 ≈ 9,600회 (개발계정 한도 10,000)
+          MAX_MINUTES: ${{ github.event.inputs.max_minutes || '120' }}
+          WORKERS: '4'
+        run: python scripts/collect.py
+
+      - name: 전월세 수집 (전세가율용, 별도 API 한도)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KIND: rent
+          CALL_BUDGET: '2400'
+          MAX_MINUTES: '60'
+          WORKERS: '4'
+        run: python scripts/collect.py
+
+      - name: 연립·다세대 매매 수집 (빌라·재개발용, 별도 API 한도)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KIND: villa
+          CALL_BUDGET: '2400'
+          MAX_MINUTES: '60'
+          WORKERS: '4'
+        run: python scripts/collect.py
+
+      - name: 단지 정보 수집 (세대수·사용승인일, K-apt)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          CALL_BUDGET: '1200'
+        run: python scripts/kapt.py
+
+      - name: 건축물대장 수집 (재건축 사업성 - 용적률·대지면적)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          CALL_BUDGET: '1500'
+        run: python scripts/bld.py
+
+      - name: 분양·인구 통계 (청약홈 입주예정, KOSIS 인구)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KOSIS_KEY: ${{ secrets.KOSIS_KEY }}
+        run: |
+          python scripts/applyhome.py
+          python scripts/kosis.py
+          python scripts/kosis_extra.py || true
+          python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1 || true
+
+      - name: 좌표 (브이월드 - 단지·역 위치)
+        continue-on-error: true
+        env:
+          VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          CALL_BUDGET: '4500'
+        run: python scripts/geocode.py 2>&1 | grep -v "^\[geocode\] 역 " 
+
+      - name: 사이트 데이터 생성 (세부 결과는 비공개 저장소 logs/build.log에만 기록)
+        run: |
+          python scripts/build_site.py > /tmp/build.log 2>&1 && echo "사이트 데이터 생성 완료" || { echo "사이트 데이터 생성 실패 — 비공개 저장소 logs/build.log 확인"; exit 1; }
+
+      - name: 엔진 데이터 저장 (비공개 저장소)
+        if: always()
+        run: |
+          [ -d engine ] || exit 0
+          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json rebuild_zones.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
+          mkdir -p engine/logs && cp /tmp/*.log engine/logs/ 2>/dev/null || true
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -qm "엔진 데이터 $(date -u +%F)"
+          git pull -q --rebase -X theirs || true
+          git push -q || true
+      - name: 수집 데이터 저장
+        run: |
+          git config user.name "jangdaejang-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data site/data
+          git diff --cached --quiet || git commit -m "실거래 데이터 갱신 $(date -u +%F)"
+          git pull --rebase -X theirs origin main || true
+          git push
+
+      - name: 공개 사이트로 내보내기 (결과 파일만, jangdaejang-data 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          if [ -z "$PUBLISH_TOKEN" ]; then echo "PUBLISH_TOKEN 없음 → 건너뜀"; exit 0; fi
+          rm -rf /tmp/pub && cp -r site /tmp/pub && touch /tmp/pub/.nojekyll
+          cd /tmp/pub && git init -q -b gh-pages && git add -A
+          git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "사이트 데이터 $(date -u +%F)"
+          git push -f -q "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" gh-pages
+          echo "공개 저장소로 내보냄"
+
+      - uses: actions/configure-pages@v5
+        continue-on-error: true
+      - uses: actions/upload-pages-artifact@v3
+        continue-on-error: true
+        with:
+          path: site
+      - id: deploy
+        continue-on-error: true            # 비공개 전환 후에는 이 저장소 Pages가 꺼지므로 실패해도 무시
+        uses: actions/deploy-pages@v4

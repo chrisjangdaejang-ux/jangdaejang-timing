@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>장대장 갈아타기 타이밍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--cream:#F5EFDC;--cream2:#EDE4C9;--olive:#3B3F22;--olive2:#545A30;--gold:#B8942A;--gold2:#D9B85A;--ink:#23241A;--muted:#6B6A58;--red:#A23B2A;--green:#4E6B2E;--card:#FFFBF0;--line:#DCCFA8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);font-family:'Noto Sans KR',system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+.top{background:var(--olive);color:#F5EFDC;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-weight:900;letter-spacing:-.02em;font-size:17px;white-space:nowrap}
+.brand span{color:var(--gold2)}
+.badge{border:1px solid var(--gold2);color:var(--gold2);font-size:11px;font-weight:700;letter-spacing:.06em;padding:4px 9px;border-radius:3px;white-space:nowrap}
+@media(max-width:420px){.top{padding:12px 14px}.brand{font-size:15px}.badge{font-size:10px;padding:3px 7px}}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 18px 60px}
+.tag{display:inline-block;background:var(--ink);color:var(--gold2);font-size:11px;font-weight:700;letter-spacing:.12em;padding:4px 9px;border-radius:2px}
+h1{font-size:clamp(28px,5vw,44px);font-weight:900;letter-spacing:-.04em;line-height:1.15;margin:12px 0 10px}
+h1 em{font-style:normal;color:var(--gold)}
+.lead{color:var(--muted);font-size:15px;margin:0 0 20px;max-width:700px}
+.tabs{display:inline-grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--cream2);padding:4px;border-radius:9px;margin-bottom:14px}
+.tabs button{border:0;background:transparent;padding:9px 18px;border-radius:7px;font:inherit;font-weight:900;font-size:14px;color:var(--muted);cursor:pointer}
+.tabs button.on{background:var(--olive);color:var(--cream)}
+.pick{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end}
+@media(max-width:720px){.pick{grid-template-columns:1fr}.pick .arrow{display:none}}
+.pick label{display:block;font-size:13px;font-weight:900;margin-bottom:6px}
+.pick label small{font-weight:500;color:var(--muted)}
+.arrow{font-size:26px;font-weight:900;color:var(--gold);padding-bottom:8px}
+.ac{position:relative}
+.ac input,.pick select{width:100%;padding:12px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:15px;font-weight:700;background:#fff;color:var(--ink)}
+.ac input:focus,.pick select:focus{outline:0;border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,148,42,.18)}
+.ac input.sel{background:#F7F1DF;border-color:var(--olive)}
+.list{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:320px;overflow:auto;z-index:20;display:none}
+.list.show{display:block}
+.opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid #F1EAD5}
+.opt:hover,.opt.hl{background:#F7F1DF}
+.opt b{font-weight:900}
+.opt span{display:block;font-size:12px;color:var(--muted)}
+.ex{margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.ex button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 11px;font:inherit;font-size:12px;font-weight:700;color:var(--olive);cursor:pointer}
+.hero{background:var(--olive);color:var(--cream);border-radius:10px;padding:24px;display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;margin-top:18px}
+@media(max-width:640px){.hero{grid-template-columns:1fr}}
+.gauge{width:150px;height:150px;border-radius:50%;display:grid;place-items:center}
+.gauge .in{width:116px;height:116px;border-radius:50%;background:var(--olive);display:grid;place-items:center;text-align:center}
+.gauge b{font-size:38px;font-weight:900;line-height:1}
+.gauge small{display:block;font-size:11px;color:var(--gold2);margin-top:4px}
+.hero h2{margin:0;font-size:21px;font-weight:900;letter-spacing:-.03em}
+.hero .vd{display:inline-block;background:var(--gold);color:var(--ink);font-weight:900;font-size:13px;padding:4px 10px;border-radius:3px;margin:8px 0}
+.hero p{margin:0;font-size:14px;color:#D9D3BC}
+.hero p b{color:#fff}
+.warn{margin-top:10px;background:rgba(162,59,42,.1);border:1px solid rgba(162,59,42,.3);color:var(--red);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+@media(max-width:640px){.stats{grid-template-columns:1fr 1fr}}
+.stat{background:var(--cream2);border-radius:8px;padding:14px}
+.stat .k{font-size:12px;color:var(--muted);font-weight:700}
+.stat .v{font-size:20px;font-weight:900;letter-spacing:-.03em;margin-top:2px}
+.stat .d{font-size:11px;color:var(--muted)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-top:16px}
+.panel h3{font-size:15px;font-weight:900;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.panel h3:before{content:"";width:4px;height:16px;background:var(--gold);border-radius:2px}
+.panel .cap{font-size:12px;color:var(--muted);margin:0 0 12px}
+.chartbox{position:relative;height:280px}
+.read{font-size:14px;padding-left:18px;margin:8px 0 0}
+.read li{margin-bottom:6px}
+.empty{margin-top:18px;padding:34px 20px;text-align:center;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:10px}
+.cta{margin-top:22px;background:var(--gold);border-radius:10px;padding:20px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.cta p{margin:0;font-weight:900;font-size:17px;letter-spacing:-.02em}
+.cta p small{display:block;font-weight:500;font-size:13px;color:#3d3416}
+.btn{display:inline-block;background:var(--ink);color:var(--cream);text-decoration:none;font-weight:700;font-size:14px;padding:11px 16px;border-radius:7px}
+.btn.primary{background:#A23B2A;color:#fff;font-size:15px;padding:12px 20px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.rules{font-size:12px;color:var(--muted);margin-top:26px;border-top:1px solid var(--line);padding-top:16px}
+.rules h4{font-size:13px;color:var(--ink);margin:0 0 8px}
+.rules ul{margin:0;padding-left:18px}
+.side{display:grid;grid-template-columns:120px 1fr;gap:6px}
+@media(max-width:720px){.side{grid-template-columns:110px 1fr}}
+.side select{padding:12px 8px;font-size:14px}
+.foot{background:var(--gold);color:var(--ink);text-align:center;font-weight:900;padding:12px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="top"><div class="brand">★ 장대장 <span>갈아타기 타이밍</span></div><div class="badge" id="badge">불러오는 중</div></div>
+<div class="wrap">
+  <span class="tag">전국 아파트 실거래 <span id="totalTag">-</span>건 분석</span>
+  <h1>지금, <em>갈아탈 타이밍</em>일까?</h1>
+  <p class="lead">내 아파트와 가고 싶은 아파트를 검색하세요. 최근 3년 국토부 실거래가로 두 단지의 가격 차이(갭)가 지금 평소보다 좁은지 넓은지 알려드립니다. 다른 지역으로 옮기는 갈아타기도 비교할 수 있습니다.</p>
+
+  <div class="tabs"><button data-m="apt" class="on">단지 비교</button><button data-m="gu">시군구 비교</button></div>
+
+  <div class="pick" id="pickApt">
+    <div><label>내 아파트 <small>(팔 집)</small></label>
+      <div class="side"><select id="sa"></select><div class="ac"><input id="qa" placeholder="단지명·동 검색" autocomplete="off"><div class="list" id="la"></div></div></div></div>
+    <div class="arrow">→</div>
+    <div><label>갈아탈 아파트 <small>(목표)</small></label>
+      <div class="side"><select id="sb"></select><div class="ac"><input id="qb" placeholder="단지명·동 검색" autocomplete="off"><div class="list" id="lb"></div></div></div></div>
+  </div>
+  <div class="pick" id="pickGu" style="display:none">
+    <div><label>지금 사는 곳</label><div class="side"><select id="gsa"></select><select id="ga"></select></div></div>
+    <div class="arrow">→</div>
+    <div><label>가고 싶은 곳</label><div class="side"><select id="gsb"></select><select id="gb"></select></div></div>
+  </div>
+  <div class="ex" id="ex"></div>
+
+  <div id="detail"><div class="empty">데이터를 불러오는 중입니다…</div></div>
+
+  <div class="cta">
+    <p>내 집 기준으로 따져보고 싶다면<small>갈아타기 계산기로 세금·대출을 확인하고, 1차 진단은 무료로 상담받으세요</small></p>
+    <div class="btns">
+      <a class="btn primary" id="consultBtn" href="#" target="_blank" rel="noopener">상담 신청</a>
+      <a class="btn" href="https://claude.ai/artifact/PMGDxwuU28vQLR5xEcqbg6" target="_blank" rel="noopener">갈아타기 계산기</a>
+      <a class="btn" href="https://www.youtube.com/results?search_query=%EC%9E%A5%EB%8C%80%EC%9E%A5TV" target="_blank" rel="noopener">장대장TV</a>
+    </div>
+  </div>
+
+  <div class="rules">
+    <h4>분석 기준</h4>
+    <ul>
+      <li>자료: 국토교통부 아파트 매매 실거래가 (공공데이터포털 API, <span id="range"></span>). 해제(취소) 거래와 직거래는 제외했고, 매일 자동으로 갱신됩니다.</li>
+      <li>단지는 같은 시군구·동·지번·단지명 기준이며, 평형은 전용면적 구간(59㎡대, 84㎡대 등)으로 묶었습니다. 3년간 거래가 12건 미만인 단지·평형은 검색되지 않습니다.</li>
+      <li>가격: 평당가의 3개월 이동 중앙값을 각 단지의 대표 면적으로 환산했습니다. 시군구 비교는 지역 전체 아파트 평당가를 전용 84㎡로 환산한 값입니다.</li>
+      <li>신고 기한(계약 후 30일) 때문에 이번 달은 제외했습니다.</li>
+      <li>타이밍 점수: 현재 가격비(목표 ÷ 내 집)가 최근 3년 중 어느 위치인지 나타냅니다. 100에 가까울수록 갭이 가장 좁았던 구간, 0에 가까울수록 가장 넓었던 구간입니다.</li>
+      <li>이 리포트는 과거 거래의 통계이며 미래 가격을 예측하거나 매수·매도를 권유하지 않습니다. 동·층·향과 매물 상태에 따라 실제 가격은 다를 수 있습니다.</li>
+    </ul>
+  </div>
+</div>
+<div class="foot">★ 장대장부동산그룹 · 숫자로 보는 갈아타기 타이밍</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const PY = 3.3058;
+let IDX, M, mode='apt', A=null, B=null, charts=[];
+const SIDO_CACHE = {};
+const ym = s => s.slice(2,4)+'.'+s.slice(4);
+const eok = v => v==null ? '-' : (Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')+'억';
+const sggName = c => IDX.sgg[c] ? IDX.sgg[c].name : '';
+const shortOf = sido => (IDX.sido.find(s=>s.name===sido)||{}).short || sido;
+
+async function loadSido(id){
+  if (!SIDO_CACHE[id]){
+    SIDO_CACHE[id] = fetch(`data/${id}.json`).then(r=>r.json()).then(d=>d.units.map(u=>{
+      const g=sggName(u[0]);
+      return {sgg:u[0], dong:u[1], apt:u[2], lab:u[3], area:u[4], n:u[5], s:u[6], c:[...u[7]].map(ch=>ch.charCodeAt(0)-48), jibun:u[8], gname:g,
+              key:(u[2]+u[1]+g).replace(/\s/g,'').toLowerCase()};
+    }));
+  }
+  return SIDO_CACHE[id];
+}
+
+function setupSide(sel, inp, list, onPick){
+  let units=[], items=[], hl=-1;
+  sel.innerHTML = IDX.sido.map(s=>`<option value="${s.id}">${s.short} (${s.units.toLocaleString()})</option>`).join('');
+  const load = async () => { inp.placeholder='불러오는 중…'; units = await loadSido(sel.value); inp.placeholder='단지명·동 검색'; };
+  sel.addEventListener('change', async ()=>{ inp.value=''; inp.classList.remove('sel'); onPick(null); await load(); inp.focus(); });
+  const show = () => {
+    const q = inp.value.replace(/\s/g,'').toLowerCase();
+    if (!q){ list.classList.remove('show'); return; }
+    items = units.filter(u=>u.key.includes(q)).slice(0,30);
+    list.innerHTML = items.length ? items.map((u,k)=>`<div class="opt" data-k="${k}"><b>${u.apt}</b> · ${u.lab}<span>${u.gname} ${u.dong} · 대표 ${u.area}㎡ · 거래 ${u.n}건</span></div>`).join('')
+      : '<div class="opt"><span>검색 결과가 없습니다. 시도를 확인하거나 단지명 일부만 입력해 보세요. (3년 거래 12건 미만 단지는 시군구 비교를 이용하세요)</span></div>';
+    hl=-1; list.classList.add('show');
+  };
+  inp.addEventListener('input',()=>{ inp.classList.remove('sel'); show(); });
+  inp.addEventListener('focus',()=>{ if(!inp.classList.contains('sel')) show(); });
+  inp.addEventListener('keydown',e=>{
+    const opts=[...list.querySelectorAll('.opt[data-k]')];
+    if(e.key==='ArrowDown') hl=Math.min(hl+1,opts.length-1); else if(e.key==='ArrowUp') hl=Math.max(hl-1,0);
+    else if(e.key==='Enter' && opts.length){ pick(items[Math.max(hl,0)]); e.preventDefault(); return; } else return;
+    opts.forEach((o,k)=>o.classList.toggle('hl',k===hl)); e.preventDefault();
+  });
+  list.addEventListener('mousedown',e=>{ const o=e.target.closest('.opt[data-k]'); if(o){ e.preventDefault(); pick(items[+o.dataset.k]); } });
+  inp.addEventListener('blur',()=>setTimeout(()=>list.classList.remove('show'),120));
+  function pick(u){ inp.value=`${u.apt} · ${u.lab} (${u.dong})`; inp.classList.add('sel'); list.classList.remove('show'); onPick(u); }
+  async function setTo(sidoId, u){ sel.value=sidoId; units = await loadSido(sidoId); pick(u); }
+  return {load, setTo};
+}
+
+function setupRegion(selS, selG, defSido, defName){
+  const sidos = [...new Set(Object.values(IDX.sgg).map(v=>v.sido))];
+  const order = IDX.sido.map(s=>s.name).filter(n=>sidos.includes(n));
+  selS.innerHTML = order.map(n=>`<option>${n}</option>`).join('');
+  const fill = () => { const list = Object.entries(IDX.sgg).filter(([c,v])=>v.sido===selS.value).sort((a,b)=>a[1].name.localeCompare(b[1].name,'ko'));
+    selG.innerHTML = list.map(([c,v])=>`<option value="${c}">${v.name}</option>`).join(''); };
+  selS.addEventListener('change',()=>{fill();render();}); selG.addEventListener('change',render);
+  if (order.includes(defSido)) selS.value=defSido; fill();
+  const hit=[...selG.options].find(o=>o.text===defName); if(hit) selG.value=hit.value;
+}
+
+function analyze(sa, sb, areaA, areaB, ca, cb){
+  const priceA = sa.map(v=>v? v*areaA/PY/10000 : null), priceB = sb.map(v=>v? v*areaB/PY/10000 : null);
+  const ratio = sa.map((v,k)=> v && sb[k] ? sb[k]/v : null);
+  const gap = priceA.map((v,k)=> v!=null && priceB[k]!=null ? priceB[k]-v : null);
+  const valid = ratio.filter(x=>x!=null);
+  let last=-1; for(let k=ratio.length-1;k>=0;k--){ if(ratio[k]!=null){last=k;break;} }
+  if (valid.length<6 || last<0) return {insufficient:true};
+  const now=ratio[last], avg=valid.reduce((a,b)=>a+b,0)/valid.length;
+  const pct = Math.round(valid.filter(x=>x<=now).length/valid.length*100);
+  const score = 100-pct, gv=gap.filter(x=>x!=null);
+  const sum = (arr,a,b)=>arr.slice(a,b).reduce((x,y)=>x+y,0);
+  return {priceA,priceB,ratio,gap,last,now,avg,min:Math.min(...valid),max:Math.max(...valid),pct,score,
+    verdict: score>=67?'갭 축소 구간':score>=34?'평균 수준':'갭 확대 구간',
+    gapNow:gap[last], gapAvg:gv.reduce((a,b)=>a+b,0)/gv.length, gap6:last>=6&&gap[last-6]!=null?gap[last-6]:null,
+    stale: M.length-1-last, vol6A:sum(ca,-6), vol6B:sum(cb,-6), volP6A:sum(ca,-12,-6), volP6B:sum(cb,-12,-6)};
+}
+
+function render(){
+  charts.forEach(c=>c.destroy()); charts=[];
+  let r, la, lb, title;
+  if (mode==='apt'){
+    if (!A||!B){ $('detail').innerHTML='<div class="empty">시도를 고르고 두 단지를 검색해 선택하면 결과가 나옵니다. 위 예시를 눌러 바로 확인해 보세요.</div>'; updateConsult(); return; }
+    la=`${A.apt} ${A.lab}`; lb=`${B.apt} ${B.lab}`; title=`${A.gname} ${A.apt} → ${B.gname} ${B.apt}`;
+    r = analyze(A.s,B.s,A.area,B.area,A.c,B.c);
+  } else {
+    const ga=$('ga').value, gb=$('gb').value, sa=IDX.sgg[ga], sb=IDX.sgg[gb];
+    if (!sa||!sb){ $('detail').innerHTML='<div class="empty">지역을 선택해 주세요.</div>'; return; }
+    la=`${shortOf(sa.sido)} ${sa.name} 평균`; lb=`${shortOf(sb.sido)} ${sb.name} 평균`; title=`${shortOf(sa.sido)} ${sa.name} → ${shortOf(sb.sido)} ${sb.name} (전용 84㎡ 환산)`;
+    r = analyze(sa.s, sb.s, 84, 84, sa.c, sb.c);
+  }
+  if (r.insufficient){ $('detail').innerHTML=`<div class="empty">두 곳이 같은 시기에 거래된 기록이 부족해 비교할 수 없습니다. 다른 평형이나 시군구 비교를 이용해 보세요.</div>`; updateConsult(); return; }
+  const color = r.score>=67?'#6E8F45':r.score>=34?'#D9B85A':'#C0563F';
+  const gd = r.gap6!=null ? r.gapNow-r.gap6 : null;
+  $('detail').innerHTML = `
+  <div class="hero">
+    <div class="gauge" style="background:conic-gradient(${color} ${r.score*3.6}deg, rgba(255,255,255,.12) 0)"><div class="in"><div><b>${r.score}</b><small>타이밍 점수</small></div></div></div>
+    <div><h2>${title}</h2><span class="vd">${r.verdict}</span>
+    <p>현재 가격비 <b>${r.now.toFixed(2)}배</b>는 최근 3년 평균 <b>${r.avg.toFixed(2)}배</b>${r.now<r.avg?'보다 낮습니다':'보다 높습니다'}. 3년 범위 ${r.min.toFixed(2)}~${r.max.toFixed(2)}배 중 ${r.score>=67?'<b>갭이 좁은 쪽</b>':r.score>=34?'<b>중간</b>':'<b>갭이 넓은 쪽</b>'}에 있습니다.</p>
+    ${r.stale>=3?`<div class="warn">최근 ${r.stale}개월 동안 두 곳이 함께 거래된 기록이 없어 ${ym(M[r.last])} 기준으로 계산했습니다.</div>`:''}</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="k">${r.gapNow>=0?'현재 갭':'현재 차이'}</div><div class="v">${eok(r.gapNow)}</div><div class="d">${ym(M[r.last])} 기준</div></div>
+    <div class="stat"><div class="k">3년 평균 갭</div><div class="v">${eok(r.gapAvg)}</div><div class="d">대표 면적 기준</div></div>
+    <div class="stat"><div class="k">6개월 전 대비</div><div class="v">${gd==null?'-':(gd>0?'+':'')+eok(gd)}</div><div class="d">${gd==null?'':gd>0?'갭 벌어짐':'갭 좁혀짐'}</div></div>
+    <div class="stat"><div class="k">최근 6개월 거래</div><div class="v">${r.vol6A} / ${r.vol6B}건</div><div class="d">내 집 / 목표</div></div>
+  </div>
+  <div class="panel"><h3>가격 추이</h3><p class="cap">3개월 이동 중앙값 (억원)</p><div class="chartbox"><canvas id="c1"></canvas></div></div>
+  <div class="panel"><h3>가격 차이(갭) 추이</h3><p class="cap">막대: 갭(억원) · 점선: 3년 평균 · 초록은 평균보다 좁은 달</p><div class="chartbox"><canvas id="c2"></canvas></div></div>
+  <div class="panel"><h3>장대장 한 줄 해석</h3><ul class="read">${readout(r)}</ul></div>`;
+  const labels=M.map(ym);
+  const base={responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{font:{family:'Noto Sans KR'}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y==null?'-':c.parsed.y.toFixed(2)+'억'}`}}},scales:{x:{ticks:{maxTicksLimit:8},grid:{display:false}},y:{grid:{color:'rgba(0,0,0,.06)'}}}};
+  if (window.Chart){
+    charts.push(new Chart($('c1'),{type:'line',data:{labels,datasets:[
+      {label:lb+' (목표)',data:r.priceB,borderColor:'#B8942A',backgroundColor:'#B8942A',pointRadius:0,borderWidth:2.5,spanGaps:true},
+      {label:la+' (내 집)',data:r.priceA,borderColor:'#3B3F22',backgroundColor:'#3B3F22',pointRadius:0,borderWidth:2.5,spanGaps:true}]},options:base}));
+    charts.push(new Chart($('c2'),{data:{labels,datasets:[
+      {type:'bar',label:'갭',data:r.gap,backgroundColor:r.gap.map(g=>g!=null&&g<=r.gapAvg?'rgba(110,143,69,.75)':'rgba(192,86,63,.6)')},
+      {type:'line',label:'3년 평균',data:M.map(()=>r.gapAvg),borderColor:'#23241A',borderDash:[5,4],pointRadius:0,borderWidth:1.5}]},options:base}));
+  }
+  updateConsult(title, r);
+}
+function readout(r){
+  const o=[], tr=(a,b)=>b>a?'증가':b<a?'감소':'비슷';
+  if (r.gapNow>=0) o.push(`지금 갈아타려면 약 <b>${eok(r.gapNow)}</b>이 더 필요합니다. 3년 평균 갭(${eok(r.gapAvg)})보다 ${r.gapNow<=r.gapAvg?'<b>적은</b>':'<b>많은</b>'} 수준입니다.`);
+  else o.push(`목표 단지가 내 집보다 약 <b>${eok(-r.gapNow)}</b> 낮습니다. 갈아타면 차액이 남는 구조입니다.`);
+  if (r.gap6!=null) o.push(`최근 6개월 동안 갭이 ${r.gapNow>r.gap6?'<b>벌어졌습니다</b>. 목표가 더 빠르게 올랐다는 뜻입니다.':'<b>좁혀졌습니다</b>. 내 집이 상대적으로 선방했다는 뜻입니다.'}`);
+  o.push(`거래량은 직전 6개월 대비 내 집 ${tr(r.volP6A,r.vol6A)}(${r.volP6A}→${r.vol6A}건), 목표 ${tr(r.volP6B,r.vol6B)}(${r.volP6B}→${r.vol6B}건)입니다.${r.vol6A<3?' 내 집 거래가 적어 매도에 시간이 걸릴 수 있습니다.':''}`);
+  o.push(`실제로 갈아탈 수 있는지는 양도세와 대출 한도에 따라 달라집니다. <b>갈아타기 계산기</b>로 내 자금을 함께 확인해 보세요.`);
+  return o.map(x=>`<li>${x}</li>`).join('');
+}
+const FORM='https://docs.google.com/forms/d/e/1FAIpQLScCG7wzIlY3FE6EHU5QWo92uW5NQe7aiP-GJ9jvh41Rx2E8Zw/viewform';
+function updateConsult(title, r){
+  const q=new URLSearchParams({usp:'pp_url'});
+  q.set('entry.1054811896','1주택 갈아타기');
+  if (title){ q.set('entry.397234060', title); q.set('entry.658364183', `[타이밍] ${title} · ${r.verdict} ${r.score}점 · 현재 갭 ${eok(r.gapNow)}`); }
+  $('consultBtn').href=FORM+'?'+q.toString().replace(/\+/g,'%20');
+}
+
+(async function init(){
+  try{ IDX = await fetch('data/index.json').then(r=>r.json()); }
+  catch(e){ $('detail').innerHTML='<div class="empty">데이터를 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div>'; return; }
+  M = IDX.months;
+  $('badge').textContent = IDX.dataTo.slice(0,4)+'.'+IDX.dataTo.slice(4)+' 실거래 기준';
+  $('totalTag').textContent = IDX.total.toLocaleString();
+  $('range').textContent = ym(M[0])+' ~ '+ym(M[M.length-1])+', '+IDX.total.toLocaleString()+'건';
+  const sideA = setupSide($('sa'),$('qa'),$('la'),u=>{A=u;render();});
+  const sideB = setupSide($('sb'),$('qb'),$('lb'),u=>{B=u;render();});
+  await Promise.all([sideA.load(), sideB.load()]);
+  setupRegion($('gsa'),$('ga'),'서울특별시','관악구'); setupRegion($('gsb'),$('gb'),'서울특별시','성동구');
+  document.querySelector('.tabs').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return; mode=b.dataset.m;
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+    $('pickApt').style.display = mode==='apt'?'':'none'; $('pickGu').style.display = mode==='gu'?'':'none';
+    $('ex').style.display = mode==='apt'?'':'none'; render();
+  });
+  $('ex').innerHTML = IDX.examples.length ? '예시: ' + IDX.examples.map((p,k)=>`<button data-k="${k}">${p[0].label} → ${p[1].label}</button>`).join('') : '';
+  $('ex').addEventListener('click', async e=>{
+    const b=e.target.closest('button'); if(!b) return; const p=IDX.examples[+b.dataset.k];
+    const find = async x => (await loadSido(x.sido)).find(u=>u.sgg===x.key[0]&&u.dong===x.key[1]&&u.apt===x.key[2]&&u.lab===x.key[3]&&u.jibun===x.key[4]);
+    const [ua, ub] = await Promise.all([find(p[0]), find(p[1])]);
+    if (ua) await sideA.setTo(p[0].sido, ua); if (ub) await sideB.setTo(p[1].sido, ub);
+  });
+  render();
+})();
+</script>
+</body>
+</html>

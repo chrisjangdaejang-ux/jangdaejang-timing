@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.tmp
+.DS_Store
+# 비공개 엔진(jangdaejang-engine)에서 실행할 때 불러오는 것들 — 공개 저장소에 올리지 않음
+scripts/
+engine/
+data/rail.json
+data/supply.json
+data/station_xy.json
+data/supply_xy.json
+data/model.json
+data/model5.json
+data/model_region.json
+data/rebuild_zones.json
