@@ -99,7 +99,7 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KOSIS_KEY: ${{ secrets.KOSIS_KEY }}
         run: |
-          python scripts/applyhome.py
+          python scripts/applyhome.py > /tmp/applyhome.log 2>&1 && echo "청약홈 분양정보 단계 끝(세부 결과는 비공개 저장소 logs/applyhome.log)" || echo "청약홈 분양정보 실패 — 비공개 저장소 logs/applyhome.log 확인"
           python scripts/kosis.py
           python scripts/kosis_extra.py || true
           python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1 || true
@@ -119,6 +119,12 @@ jobs:
       - name: 재개발·빌라 데이터 생성 (세부 결과는 비공개 저장소 logs/villa.log에만 기록)
         continue-on-error: true
         run: python scripts/villa.py > /tmp/villa.log 2>&1 && echo "빌라 데이터 생성 완료" || echo "빌라 데이터 생성 건너뜀"
+
+      - name: 청약 데이터 생성 (청약홈 공고·당첨 가점, 세부 결과는 비공개 저장소 logs/chungyak.log에만 기록)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python scripts/chungyak.py > /tmp/chungyak.log 2>&1 && echo "청약 데이터 생성 완료" || echo "청약 데이터 생성 건너뜀"
 
       - name: 엔진 데이터 저장 (비공개 저장소)
         if: always()
