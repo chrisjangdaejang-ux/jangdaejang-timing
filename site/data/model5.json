@@ -1,1 +1,1 @@
-{"t0":"202110","end":"202610","top20_excess":7.07,"bottom20_excess":-6.56,"periods":[{"t0":"202110","n":25408,"top20":7.07,"bottom20":-6.56,"ic":0.363}],"oos":null,"hit_periods":1}
+{"t0":"202110","end":"202610","top20_excess":6.49,"bottom20_excess":-5.98,"periods":[{"t0":"202110","n":25408,"top20":6.49,"bottom20":-5.98,"ic":0.346},{"t0":"202010","n":26112,"top20":3.6,"bottom20":-4.68,"ic":0.271}],"oos":null,"hit_periods":2,"oos_avg":null,"oos_hit":0}
