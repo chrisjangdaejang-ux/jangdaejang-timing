@@ -126,11 +126,21 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
         run: python scripts/chungyak.py > /tmp/chungyak.log 2>&1 && echo "청약 데이터 생성 완료" || echo "청약 데이터 생성 건너뜀"
 
+      - name: 분양 데이터 생성 (청약홈 아파트·오피스텔·도시형·민간임대·무순위/잔여세대 + 정비사업 분양예정, 세부 결과는 비공개 저장소 logs/bunyang.log에만 기록)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
+          CALL_BUDGET: '300'
+          BUNYANG_EXTRA: '0'          # 미분양·주택인허가 활용신청 승인 후 '1'
+        run: python scripts/bunyang.py > /tmp/bunyang.log 2>&1 && echo "분양 데이터 생성 완료" || echo "분양 데이터 생성 건너뜀"
+
       - name: 엔진 데이터 저장 (비공개 저장소)
         if: always()
         run: |
           [ -d engine ] || exit 0
-          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json rebuild_zones.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
+          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json rebuild_zones.json bunyang_xy.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
           mkdir -p engine/logs && cp /tmp/*.log engine/logs/ 2>/dev/null || true
           cd engine
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
