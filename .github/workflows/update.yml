@@ -122,7 +122,7 @@ jobs:
           CALL_BUDGET: '1500'
         run: python scripts/bld.py
 
-      - name: 분양·인구 통계 (청약홈 입주예정, KOSIS 인구)
+      - name: 분양·인구 통계 (청약홈 입주예정, KOSIS 인구·연령별 인구·인구이동·세대원수)
         continue-on-error: true
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
@@ -131,6 +131,7 @@ jobs:
           python scripts/applyhome.py > /tmp/applyhome.log 2>&1 && echo "청약홈 분양정보 단계 끝(세부 결과는 비공개 저장소 logs/applyhome.log)" || echo "청약홈 분양정보 실패 — 비공개 저장소 logs/applyhome.log 확인"
           python scripts/kosis.py
           python scripts/kosis_extra.py || true
+          python scripts/kosis_demo.py || echo "인구 구조(연령별·인구이동·세대원수) 수집 건너뜀"      # 로그 [kosis-demo]: 쓴 표 ID·수록기간·보유 기간
           python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1 || true
 
       - name: 지하철 역별 승하차 (서울 열린데이터 — 오피스텔 임대수요 지표, 서울 역만)
