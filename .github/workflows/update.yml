@@ -96,6 +96,18 @@ jobs:
           WORKERS: '4'
         run: python scripts/collect.py
 
+      - name: 전월세 추가 종류 수집 (빌라·오피스텔·단독·다가구 전월세 + 오피스텔 매매 — 활용신청 승인되면 자동 시작)
+        # 승인 전이면 종류마다 시험 호출 1번만 하고 건너뜀. 공공데이터포털 API별 한도가 따로라 종류마다 같은 예산(최신 달 먼저 → 과거 채우기)
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          CALL_BUDGET: ${{ vars.EXTRA_RENT_CALL_BUDGET || '2400' }}
+          RUNS_PER_DAY: '4'
+          MAX_MINUTES: ${{ vars.EXTRA_RENT_MAX_MINUTES || '15' }}
+          WORKERS: '4'
+        run: |
+          for k in rh_rent offi_rent offi_trade sh_rent; do KIND=$k python scripts/collect.py || echo "$k 수집 건너뜀"; done
+
       - name: 단지 정보 수집 (세대수·사용승인일, K-apt)
         continue-on-error: true
         env:
