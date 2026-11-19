@@ -2,7 +2,7 @@ name: 실거래 수집 및 사이트 갱신
 
 on:
   schedule:
-    - cron: '21 0,6,12,18 * * *'   # 하루 4번 (한국시간 03:21·09:21·15:21·21:21) — 처음 전국 채우기를 빨리 끝내고, 이후엔 새 거래 반영
+    - cron: '21 */3 * * *'   # 3시간마다(하루 8번 시도). GitHub 정기 실행은 붐비면 늦어지거나 건너뛰어져서 시도를 늘림 — API 한도는 수집기가 종류별 하루 한도(DAILY_CAP)로 나눠 써서 넘지 않음
   workflow_dispatch:            # Actions 탭에서 수동 실행 가능
     inputs:
       max_minutes:
@@ -69,7 +69,7 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           # 하루 4번 × 2,400 ≈ 9,600회 (개발계정 한도 10,000). 운영계정 승인으로 한도가 늘면
           # 저장소 Settings → Secrets and variables → Actions → Variables 에 TRADE_CALL_BUDGET(1회 호출 수)만 올리면 됨
-          CALL_BUDGET: ${{ vars.TRADE_CALL_BUDGET || '2400' }}
+          CALL_BUDGET: ${{ vars.TRADE_CALL_BUDGET || '5000' }}
           RUNS_PER_DAY: '4'
           MAX_MINUTES: ${{ github.event.inputs.max_minutes || vars.TRADE_MAX_MINUTES || '120' }}
           WORKERS: '4'
@@ -80,7 +80,7 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KIND: rent
-          CALL_BUDGET: ${{ vars.RENT_CALL_BUDGET || '2400' }}     # 운영계정 승인 후 변수 RENT_CALL_BUDGET 로 올림
+          CALL_BUDGET: ${{ vars.RENT_CALL_BUDGET || '5000' }}     # 운영계정 승인 후 변수 RENT_CALL_BUDGET 로 올림
           RUNS_PER_DAY: '4'
           MAX_MINUTES: ${{ vars.RENT_MAX_MINUTES || '60' }}
           WORKERS: '4'
