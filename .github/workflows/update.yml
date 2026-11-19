@@ -150,7 +150,10 @@ jobs:
           KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
           VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
           CALL_BUDGET: '300'
-          BUNYANG_EXTRA: '0'          # 미분양·주택인허가 활용신청 승인 후 '1'
+          BUNYANG_EXTRA: '1'          # 미분양(경기도, GG_DATA_KEY) 켬. 주택인허가는 BUNYANG_PERMIT_URL 이 없으면 자동으로 꺼짐
+          GG_DATA_KEY: ${{ secrets.GG_DATA_KEY }}
+          GG_UNSOLD_SERVICE: ${{ vars.GG_UNSOLD_SERVICE || '' }}     # 경기데이터드림 OpenAPI 서비스명(비우면 안내 페이지에서 찾음)
+          GG_UNSOLD_FIELDS: ${{ vars.GG_UNSOLD_FIELDS || '' }}       # 필드 이름이 다를 때만 JSON으로 지정
         run: python scripts/bunyang.py > /tmp/bunyang.log 2>&1 && echo "분양 데이터 생성 완료" || echo "분양 데이터 생성 건너뜀"
 
       - name: 엔진 데이터 저장 (비공개 저장소)
