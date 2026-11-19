@@ -1,0 +1,40 @@
+name: 부동산 정책 수집 (매일)
+# 정책브리핑 RSS·법제처 입법예고(키 없음) → 새 정책 '후보 목록'(비공개 엔진 data/policy_candidates.json, 대표 승인 전엔 화면에 안 나감)
+# 국회 의안정보(ASSEMBLY_KEY 있을 때) → 이미 승인된 법안 정책의 단계(국회 제출·심사·통과·철회)만 공식 API 확인 시 자동 반영(policy.json)
+# 화면(policy.json 공개본)은 다음 정기 '실거래 수집 및 사이트 갱신' 때 다시 만들어짐
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 22 * * *'     # 한국 시각 오전 7:43
+permissions:
+  contents: read
+concurrency:
+  group: policy-watch
+  cancel-in-progress: false
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: 정책 후보·단계 확인
+        continue-on-error: true
+        env:
+          ASSEMBLY_KEY: ${{ secrets.ASSEMBLY_KEY }}       # 열린국회정보 OpenAPI 인증키(없으면 국회 단계 확인만 건너뜀)
+        run: cd engine && python scripts/policy_watch.py | tee /tmp/policy_watch.log
+      - name: 엔진 데이터 저장 (비공개 저장소)
+        run: |
+          cd engine
+          mkdir -p logs && cp /tmp/policy_watch.log logs/ 2>/dev/null || true
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/policy.json data/policy_candidates.json logs/policy_watch.log 2>/dev/null || true
+          git diff --cached --quiet || git commit -qm "정책 수집 $(date -u +%F)"
+          git pull -q --rebase -X theirs || true
+          git push -q || true
