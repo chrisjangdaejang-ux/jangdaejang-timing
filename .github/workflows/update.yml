@@ -133,6 +133,13 @@ jobs:
           python scripts/kosis_extra.py || true
           python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1 || true
 
+      - name: 지하철 역별 승하차 (서울 열린데이터 — 오피스텔 임대수요 지표, 서울 역만)
+        continue-on-error: true
+        env:
+          SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+        run: python scripts/subway.py || echo "지하철 승하차 건너뜀"
+
       - name: 좌표 (브이월드 - 단지·역 위치)
         continue-on-error: true
         env:
@@ -172,7 +179,7 @@ jobs:
         if: always()
         run: |
           [ -d engine ] || exit 0
-          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json rebuild_zones.json bunyang_xy.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
+          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json model_offi.json rebuild_zones.json bunyang_xy.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
           mkdir -p engine/logs && cp /tmp/*.log engine/logs/ 2>/dev/null || true
           cd engine
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
