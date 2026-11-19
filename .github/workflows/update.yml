@@ -39,6 +39,19 @@ jobs:
           cp engine/data/*.json data/
           echo "엔진 불러옴"
 
+      - name: 지난번 공개 사이트 데이터 불러오기 (어떤 생성 단계가 실패해도 그 부분은 직전 자료 유지)
+        # site/data 는 이 저장소에 커밋하지 않는다(정기 실행마다 수십 MB씩 이력이 쌓이던 문제). 대신 공개 저장소의 마지막 배포본에서 시작한다.
+        continue-on-error: true
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          rm -rf /tmp/prev
+          if [ -n "$PUBLISH_TOKEN" ] && git clone -q --depth 1 -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/prev && [ -d /tmp/prev/data ]; then
+            mkdir -p site/data && cp -rn /tmp/prev/data/. site/data/ && echo "직전 공개 데이터 불러옴"
+          else
+            echo "직전 공개 데이터 없음 → 새로 생성"
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -54,8 +67,11 @@ jobs:
       - name: 실거래 수집
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-          CALL_BUDGET: '2400'        # 하루 4번 × 2,400 ≈ 9,600회 (개발계정 한도 10,000)
-          MAX_MINUTES: ${{ github.event.inputs.max_minutes || '120' }}
+          # 하루 4번 × 2,400 ≈ 9,600회 (개발계정 한도 10,000). 운영계정 승인으로 한도가 늘면
+          # 저장소 Settings → Secrets and variables → Actions → Variables 에 TRADE_CALL_BUDGET(1회 호출 수)만 올리면 됨
+          CALL_BUDGET: ${{ vars.TRADE_CALL_BUDGET || '2400' }}
+          RUNS_PER_DAY: '4'
+          MAX_MINUTES: ${{ github.event.inputs.max_minutes || vars.TRADE_MAX_MINUTES || '120' }}
           WORKERS: '4'
         run: python scripts/collect.py
 
@@ -64,8 +80,9 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KIND: rent
-          CALL_BUDGET: '2400'
-          MAX_MINUTES: '60'
+          CALL_BUDGET: ${{ vars.RENT_CALL_BUDGET || '2400' }}     # 운영계정 승인 후 변수 RENT_CALL_BUDGET 로 올림
+          RUNS_PER_DAY: '4'
+          MAX_MINUTES: ${{ vars.RENT_MAX_MINUTES || '60' }}
           WORKERS: '4'
         run: python scripts/collect.py
 
@@ -152,7 +169,7 @@ jobs:
         run: |
           git config user.name "jangdaejang-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data site/data
+          git add data                     # 원자료·수집 기록만(site/data 는 공개 저장소로만 내보냄 — 이력 커지지 않게)
           git diff --cached --quiet || git commit -m "실거래 데이터 갱신 $(date -u +%F)"
           git pull --rebase -X theirs origin main || true
           git push
