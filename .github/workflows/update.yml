@@ -162,6 +162,12 @@ jobs:
         run: |
           python scripts/build_site.py > /tmp/build.log 2>&1 && echo "사이트 데이터 생성 완료" || { echo "사이트 데이터 생성 실패 — 비공개 저장소 logs/build.log 확인"; exit 1; }
 
+      - name: 광역시 정비사업 추진현황 (대구·인천 공공데이터포털 파일, 7일마다)
+        continue-on-error: true
+        run: |
+          pip install -q xlrd
+          python scripts/rebuild_metro.py > /tmp/rebuild_metro.log 2>&1 && echo "광역시 정비사업 단계 끝(세부는 비공개 저장소 logs/rebuild_metro.log)" || echo "광역시 정비사업 단계 실패 — logs/rebuild_metro.log 확인"
+
       - name: 재개발·빌라 데이터 생성 (세부 결과는 비공개 저장소 logs/villa.log에만 기록)
         continue-on-error: true
         run: python scripts/villa.py > /tmp/villa.log 2>&1 && echo "빌라 데이터 생성 완료" || echo "빌라 데이터 생성 건너뜀"
