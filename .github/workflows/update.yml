@@ -148,6 +148,16 @@ jobs:
           CALL_BUDGET: '4500'
         run: python scripts/geocode.py 2>&1 | grep -v "^\[geocode\] 역 " 
 
+      - name: 정비구역 경계 (서울시 의제처리구역 위치정보 OA-20957, 30일마다) + 빌라 지번 좌표 — 구역 안/밖 판정용
+        continue-on-error: true
+        env:
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
+          ZONE_GEO_BUDGET: ${{ vars.ZONE_GEO_BUDGET || '4000' }}
+        run: |
+          pip install -q pyshp pyproj
+          python scripts/zone_bounds.py > /tmp/zone_bounds.log 2>&1 && echo "정비구역 경계 단계 끝(세부는 비공개 저장소 logs/zone_bounds.log)" || echo "정비구역 경계 단계 실패 — logs/zone_bounds.log 확인"
+
       - name: 사이트 데이터 생성 (세부 결과는 비공개 저장소 logs/build.log에만 기록)
         run: |
           python scripts/build_site.py > /tmp/build.log 2>&1 && echo "사이트 데이터 생성 완료" || { echo "사이트 데이터 생성 실패 — 비공개 저장소 logs/build.log 확인"; exit 1; }
@@ -179,7 +189,7 @@ jobs:
         if: always()
         run: |
           [ -d engine ] || exit 0
-          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json model_offi.json rebuild_zones.json bunyang_xy.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
+          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json model_offi.json rebuild_zones.json bunyang_xy.json zone_poly.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
           mkdir -p engine/logs && cp /tmp/*.log engine/logs/ 2>/dev/null || true
           cd engine
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
