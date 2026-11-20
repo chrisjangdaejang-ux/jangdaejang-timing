@@ -1,0 +1,108 @@
+name: 우리 동네 아침 브리핑 (매일 새벽)
+# 동네(시·군·구)별로 한 번씩만 만든다(구독자 수와 상관없이 비용 같음). 결과: 공개 저장소 jangdaejang-data gh-pages 의 data/brief/
+#  · 새로 올라온 거래 = 국토부 공개 자료에 이번 확인에서 처음 보인 거래(비공개 엔진 data/brief/seen.json.gz 와 비교). 확인 기간을 결과에 함께 싣는다.
+#  · 구독 동네는 이번 달·지난달을 이 단계에서 한 번 더 받아(BRIEF_CALL_BUDGET, 기본 300회/종류) '어제 올라온 것'을 매일 잡는다.
+#  · 각 단계가 실패해도 다른 단계·정기 수집(update.yml)에는 영향 없음. 발송은 Apps Script(briefDaily, 오전 7시대)가 이 결과를 읽어서 함.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 20 * * *'      # 한국 시각 오전 5:07
+permissions:
+  contents: read
+concurrency:
+  group: brief
+  cancel-in-progress: false
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: '1'
+      BRIEF_API: ${{ vars.BRIEF_API_URL || 'https://script.google.com/macros/s/AKfycbyFwqwleAfwHoVSfWHyFVnszvc0fCjsG-WcEVkxRqUz_FmmL4bL-RymfPc3Eh_aNcrRpQ/exec' }}
+      BRIEF_DEFAULT: ${{ vars.BRIEF_DEFAULT || '11' }}          # 구독이 없어도 만들 동네(시·도 2자리·시군구 5자리, 쉼표). 기본 서울 전체
+    steps:
+      - name: 수집 원자료만 받기 (매매·전월세·수집 기록)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/raw/
+            data/rent/
+            data/manifest.json
+            data/manifest_rent.json
+            data/sgg_codes.json
+            data/rone_price.json
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+      - name: 공개 데이터 일부 받기 (정책·분양 공고·지난 브리핑)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" pub
+          cd pub && git sparse-checkout set --no-cone /data/policy.json /data/index.json /data/bunyang/notices.json /data/brief/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q requests
+      - name: 구독 동네·관심도 집계 받기 (개인정보 없음)
+        continue-on-error: true
+        env:
+          BRIEF_PULL_TOKEN: ${{ secrets.BRIEF_PULL_TOKEN }}
+        run: |
+          [ -n "$BRIEF_PULL_TOKEN" ] || { echo "BRIEF_PULL_TOKEN 없음 → 기본 동네만"; exit 0; }
+          curl -sfL "$BRIEF_API?action=briefAreas&k=$BRIEF_PULL_TOKEN" -o /tmp/brief_areas.json && python -c "import json;j=json.load(open('/tmp/brief_areas.json'));print('구독 동네', len(j.get('areas') or []), '곳') if j.get('ok') else exit(1)" || rm -f /tmp/brief_areas.json
+          curl -sfL "$BRIEF_API?action=briefInterest&k=$BRIEF_PULL_TOKEN" -o /tmp/brief_interest.json && python -c "import json;j=json.load(open('/tmp/brief_interest.json'));exit(0 if j.get('ok') else 1)" || rm -f /tmp/brief_interest.json
+      - name: 구독 동네 최신 두 달 다시 받기 (매일 '어제 올라온 거래'용)
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          JDJ_DATA: ${{ github.workspace }}/data
+          BRIEF_CALL_BUDGET: ${{ vars.BRIEF_CALL_BUDGET || '300' }}
+        run: |
+          [ -f /tmp/brief_areas.json ] || { echo "구독 동네 없음 → 건너뜀(정기 수집 자료로 만듦)"; exit 0; }
+          python engine/scripts/brief.py fetch --out /tmp/fresh --areas /tmp/brief_areas.json
+      - name: 동네별 브리핑 만들기
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+          BRIEF_LEDGER_DIR: ${{ github.workspace }}/engine/data/brief
+        run: |
+          A=""; [ -f /tmp/brief_areas.json ] && A="--areas /tmp/brief_areas.json"
+          I=""; [ -f /tmp/brief_interest.json ] && I="--interest /tmp/brief_interest.json"
+          F=""; [ -d /tmp/fresh ] && F="--fresh /tmp/fresh"
+          python engine/scripts/brief.py build --site pub/data $A $I $F | tee /tmp/brief.log
+      - name: 고객 공유용 카드 이미지 (구독 동네만)
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          [ -f /tmp/brief_areas.json ] || { echo "구독 동네 없음 → 카드 건너뜀"; exit 0; }
+          git clone -q --depth 1 https://github.com/chrisjangdaejang-ux/jangdaejang-calc.git /tmp/calc
+          pip install -q playwright && python -m playwright install --with-deps chromium > /dev/null
+          python engine/scripts/brief_cards.py --site pub/data --calc /tmp/calc --areas /tmp/brief_areas.json --max ${{ vars.BRIEF_CARD_MAX || '150' }} | tee -a /tmp/brief.log
+      - name: 이미 본 거래 목록 저장 (비공개 엔진)
+        if: always()
+        run: |
+          cd engine
+          mkdir -p logs && cp /tmp/brief.log logs/ 2>/dev/null || true
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/brief logs/brief.log 2>/dev/null || true
+          git diff --cached --quiet || git commit -qm "아침 브리핑 $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true
+      - name: 공개 저장소에 올리기 (data/brief 만, 정기 갱신과 겹치면 다시 시도)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          cp -r pub/data/brief /tmp/brief_out
+          for i in 1 2 3 4; do
+            rm -rf /tmp/pub2
+            git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2
+            cd /tmp/pub2 && git sparse-checkout set --no-cone /data/brief/
+            rm -rf data/brief && mkdir -p data && cp -r /tmp/brief_out data/brief
+            git add -A data/brief
+            git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "아침 브리핑 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
+            git push -q && { echo "공개 저장소로 내보냄"; exit 0; }
+            cd - > /dev/null; sleep 20
+          done
+          echo "올리지 못함 — 다음 날 다시"; exit 1

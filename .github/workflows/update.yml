@@ -263,6 +263,16 @@ jobs:
           git pull --rebase -X theirs origin main || true
           git push
 
+      - name: 아침 브리핑 최신본 다시 받기 (이 실행 중에 brief.yml 이 올린 data/brief 를 덮어쓰지 않게)
+        continue-on-error: true
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          [ -n "$PUBLISH_TOKEN" ] || exit 0
+          rm -rf /tmp/bprev && git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/bprev \
+            && (cd /tmp/bprev && git sparse-checkout set --no-cone /data/brief/) && [ -d /tmp/bprev/data/brief ] \
+            && rm -rf site/data/brief && cp -r /tmp/bprev/data/brief site/data/brief && echo "아침 브리핑 최신본 유지" || echo "아침 브리핑 없음"
+
       - name: 공개 사이트로 내보내기 (결과 파일만, jangdaejang-data 저장소)
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
