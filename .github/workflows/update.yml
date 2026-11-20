@@ -2,7 +2,7 @@ name: 실거래 수집 및 사이트 갱신
 
 on:
   schedule:
-    - cron: '21 */3 * * *'   # 3시간마다(하루 8번 시도). GitHub 정기 실행은 붐비면 늦어지거나 건너뛰어져서 시도를 늘림 — API 한도는 수집기가 종류별 하루 한도(DAILY_CAP)로 나눠 써서 넘지 않음
+    - cron: '21 */6 * * *'   # 6시간마다(하루 4번). 한 번 실행이 2~3시간 걸려 3시간 간격이면 겹침 — API 한도는 DAILY_CAP로 관리
   workflow_dispatch:            # Actions 탭에서 수동 실행 가능
     inputs:
       max_minutes:
@@ -24,7 +24,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 330
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -97,6 +97,7 @@ jobs:
         run: python scripts/collect.py
 
       - name: 전월세 추가 종류 수집 (빌라·오피스텔·단독·다가구 전월세 + 오피스텔 매매 — 활용신청 승인되면 자동 시작)
+        timeout-minutes: 70
         # 승인 전이면 종류마다 시험 호출 1번만 하고 건너뜀. 공공데이터포털 API별 한도가 따로라 종류마다 같은 예산(최신 달 먼저 → 과거 채우기)
         continue-on-error: true
         env:
@@ -109,6 +110,7 @@ jobs:
           for k in rh_rent offi_rent offi_trade sh_rent; do KIND=$k python scripts/collect.py || echo "$k 수집 건너뜀"; done
 
       - name: 단지 정보 수집 (세대수·사용승인일, K-apt)
+        timeout-minutes: 20
         continue-on-error: true
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
@@ -123,6 +125,7 @@ jobs:
         run: python scripts/bld.py
 
       - name: 분양·인구 통계 (청약홈 입주예정, KOSIS 인구·연령별 인구·인구이동·세대원수)
+        timeout-minutes: 25
         continue-on-error: true
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
@@ -135,6 +138,7 @@ jobs:
           python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1 || true
 
       - name: 지하철 역별 승하차 (서울 열린데이터 — 오피스텔 임대수요 지표, 서울 역만)
+        timeout-minutes: 10
         continue-on-error: true
         env:
           SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
@@ -142,6 +146,7 @@ jobs:
         run: python scripts/subway.py || echo "지하철 승하차 건너뜀"
 
       - name: 좌표 (브이월드 - 단지·역 위치)
+        timeout-minutes: 20
         continue-on-error: true
         env:
           VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
@@ -150,6 +155,7 @@ jobs:
         run: python scripts/geocode.py 2>&1 | grep -v "^\[geocode\] 역 " 
 
       - name: 정비구역 경계 (서울시 의제처리구역 위치정보 OA-20957, 30일마다) + 빌라 지번 좌표 — 구역 안/밖 판정용
+        timeout-minutes: 15
         continue-on-error: true
         env:
           KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
@@ -158,6 +164,16 @@ jobs:
         run: |
           pip install -q pyshp pyproj
           python scripts/zone_bounds.py > /tmp/zone_bounds.log 2>&1 && echo "정비구역 경계 단계 끝(세부는 비공개 저장소 logs/zone_bounds.log)" || echo "정비구역 경계 단계 실패 — logs/zone_bounds.log 확인"
+
+      - name: 수집 원자료 먼저 저장 (뒤 단계가 늦어지거나 실패해도 받은 자료·하루 호출 기록 보존)
+        if: always()
+        run: |
+          git config user.name "jangdaejang-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -qm "수집 원자료 $(date -u +%F)"
+          git pull -q --rebase -X theirs origin main || true
+          git push -q || true
 
       - name: 사이트 데이터 생성 (세부 결과는 비공개 저장소 logs/build.log에만 기록)
         run: |
@@ -205,6 +221,7 @@ jobs:
           git pull -q --rebase -X theirs || true
           git push -q || true
       - name: 수집 데이터 저장
+        if: always()
         run: |
           git config user.name "jangdaejang-bot"
           git config user.email "actions@users.noreply.github.com"
