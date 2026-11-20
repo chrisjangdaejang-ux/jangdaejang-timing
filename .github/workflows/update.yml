@@ -230,6 +230,19 @@ jobs:
           GG_UNSOLD_FIELDS: ${{ vars.GG_UNSOLD_FIELDS || '' }}       # 필드 이름이 다를 때만 JSON으로 지정
         run: python scripts/bunyang.py > /tmp/bunyang.log 2>&1 && echo "분양 데이터 생성 완료" || echo "분양 데이터 생성 건너뜀"
 
+      - name: 소규모 신축 현장 (건축HUB 건축인허가 — 빌라·도시형·소형 오피스텔·상가, 공개 지도 레이어 site/data/newbuild.json · 주소가 든 영업 목록은 비공개 엔진 저장소 data/private/ 에만)
+        # 활용신청 승인 전이면 첫 호출에서 '활용신청 필요'만 남기고 끝남(logs/newbuild.log). 승인되면 다음 실행부터 자동으로 켜짐
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          CALL_BUDGET: '800'
+          NEWBUILD_SIDO: ${{ vars.NEWBUILD_SIDO || '11,28,41' }}
+        run: |
+          if [ ! -d engine/data ]; then echo "엔진 저장소 없음 → 신축 현장 건너뜀(주소 파일을 공개 저장소에 두지 않기 위해)"; exit 0; fi
+          python scripts/newbuild.py > /tmp/newbuild.log 2>&1 && echo "신축 현장 단계 끝" || echo "신축 현장 단계 건너뜀 — logs/newbuild.log 확인"
+
       - name: 재현 성적표 (매월 기준 월 백테스트 — 자료 끝 달이 바뀐 첫 실행만, 세부는 비공개 저장소 logs/backtest.log)
         timeout-minutes: 90
         continue-on-error: true
