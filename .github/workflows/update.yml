@@ -243,6 +243,10 @@ jobs:
           if [ ! -d engine/data ]; then echo "엔진 저장소 없음 → 신축 현장 건너뜀(주소 파일을 공개 저장소에 두지 않기 위해)"; exit 0; fi
           python scripts/newbuild.py > /tmp/newbuild.log 2>&1 && echo "신축 현장 단계 끝" || echo "신축 현장 단계 건너뜀 — logs/newbuild.log 확인"
 
+      - name: 청약 공고별 분양가·입지 분석 (청약·분양·실거래·점수·성적표 공개 자료 → site/data/chungyak/price.json·price/, 세부는 비공개 저장소 logs/cy_price.log)
+        continue-on-error: true
+        run: python scripts/cy_price.py site/data > /tmp/cy_price.log 2>&1 && echo "분양가·입지 분석 완료" || echo "분양가·입지 분석 건너뜀(직전 공개본 유지)"
+
       - name: 재현 성적표 (매월 기준 월 백테스트 — 자료 끝 달이 바뀐 첫 실행만, 세부는 비공개 저장소 logs/backtest.log)
         timeout-minutes: 90
         continue-on-error: true
