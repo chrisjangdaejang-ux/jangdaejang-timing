@@ -33,43 +33,21 @@ jobs:
               t = requests.get(URL, params=p, timeout=120).text.strip()
               try: return json.loads(t)
               except Exception: return {'raw': t[:120]}
-          for org, tbl in [('101', 'DT_1YL202004E'), ('116', 'DT_MLTM_2082'), ('116', 'DT_MLTM_5328'), ('116', 'DT_MLTM_2086'), ('116', 'DT_MLTM_2080')]:
-              objs, order = KM.meta_items(key, org, tbl)
-              first = []; tot = []
-              for o in order:
-                  ids = [i for i, n, _ in objs[o]]
-                  t = [i for i, n, _ in objs[o] if n.strip() in ('계', '합계', '총합', '전국')]
-                  first.append(ids[1] if len(ids) > 1 else ids[0]); tot.append(t[0] if t else ids[0])
-              for se in ('M', 'Q', 'Y'):
-                  # 한 지역(두 번째 항목, 나머지 분류는 계) 긴 기간 → 수록 범위
-                  j = get(org, tbl, se, first[:1] + tot[1:], {'newEstPrdCnt': '400'})
+          objs, order = KM.meta_items(key, '116', 'DT_MLTM_5328')
+          for o in order: print('분류', o, [(i, n, u) for i, n, u in objs[o]][:6])
+          ids = lambda o, names: [i for i, n, _ in objs[o] if n.strip() in names]
+          A, B_, C, D = order
+          tries = [('ALL', 'ALL', ids(C, ('계',))[0], ids(D, ('계',))[0], '1'),
+                   (objs[A][1][0], 'ALL', ids(C, ('계',))[0], ids(D, ('계',))[0], '400'),
+                   ('ALL', 'ALL', 'ALL', 'ALL', '1')]
+          for t in tries:
+              for se in ('M', 'Q'):
+                  j = get('116', 'DT_MLTM_5328', se, list(t[:4]), {'newEstPrdCnt': t[4]})
                   if isinstance(j, list) and j:
                       ps = sorted({str(d.get('PRD_DE')) for d in j})
-                      print(f'## {org}/{tbl} {se}: 수록 {ps[0]}~{ps[-1]} ({len(ps)}개) 예 {[(d.get("C1_NM"), d.get("C2_NM"), d.get("C3_NM"), d.get("ITM_NM"), d.get("DT")) for d in j[-2:]]}')
-                      # 최근 1개 시점 전체 지역
-                      j2 = get(org, tbl, se, ['ALL'] + (['ALL'] if len(order) > 1 else []) + tot[2:], {'newEstPrdCnt': '1'})
-                      if isinstance(j2, list):
-                          print(f'   최근 시점 전체: {len(j2)}행 시점 {sorted({str(d.get("PRD_DE")) for d in j2})} 예 {[(d.get("C1"), d.get("C1_NM"), d.get("C2"), d.get("C2_NM"), d.get("DT")) for d in j2[:4]]}')
-                          print(f'   C2 이름 수 {len({d.get("C2_NM") for d in j2})}, 계 행 {sum(1 for d in j2 if str(d.get("C2_NM")).strip() == "계")}')
-                      else: print('   최근 시점 전체 오류', j2)
-                  else:
-                      print(f'## {org}/{tbl} {se}: 없음 {j if isinstance(j, dict) else "빈 목록"}')
-          PY
-          python - <<'PY'
-          import os, collections
-          import bunyang as B
-          key = os.environ.get('GG_DATA_KEY', '').strip()
-          if not key: print('GG 키 없음'); raise SystemExit
-          raw, total, pages = B.gg_fetch('CopertnhousngUnsol', key)
-          print('경기 행', len(raw), '전체', total)
-          n = lambda v: B.num(B.s(v)) or 0
-          mt = [n(d.get('MT_HSHLD_CNT')) for d in raw]; tt = [n(d.get('TOT_LOTOUT_HSHLD_CNT')) for d in raw]
-          print('MT 합', sum(mt), 'MT>0 행', sum(1 for x in mt if x > 0), 'TOT 합', sum(tt), 'MT<=TOT 행', sum(1 for a, b in zip(mt, tt) if a <= b), '/', len(raw))
-          for f in ('COMPLTN_YN_DIV_NM', 'PRVATE_PUBL_DIV_NM', 'RENT_LOTOUT_DIV_NM', 'SIGUN_NM', 'JURISD_AM_GUN_AM_GUN_NM'):
-              print(f, collections.Counter(B.s(d.get(f)) for d in raw).most_common(8))
-          print('RM 예', collections.Counter(B.s(d.get('RM'))[:30] for d in raw).most_common(6))
-          sub = sorted(B.s(d.get('LOTOUT_SUBSCRPT_DE')) for d in raw if B.s(d.get('LOTOUT_SUBSCRPT_DE')))
-          print('청약일 범위', sub[:1], sub[-1:], '입주예정 예', [B.s(d.get('MOVEIN_PREARNGE_DE')) for d in raw[:3]])
-          print('면적 예', [B.s(d.get('SCALE_ACCTO_AR')) for d in raw[:5]], '위치 예', [B.s(d.get('CNSTRCT_LOCPLC_ADDR'))[:30] for d in raw[:3]])
-          print('준공 후 미분양(준공여부별 MT 합)', {k: sum(n(d.get('MT_HSHLD_CNT')) for d in raw if B.s(d.get('COMPLTN_YN_DIV_NM')) == k) for k in {B.s(d.get('COMPLTN_YN_DIV_NM')) for d in raw}})
+                      print(f'## 5328 {se} {t}: {len(j)}행 시점 {ps[0]}~{ps[-1]} ({len(ps)}) C2 {len({d.get("C2_NM") for d in j})}종 예 {[(d.get("C1_NM"), d.get("C2_NM"), d.get("C3_NM"), d.get("C4_NM"), d.get("DT")) for d in j[:5]]}')
+                  else: print(f'## 5328 {se} {t}: 없음', j if isinstance(j, dict) else '빈 목록')
+          # 2082 지역 분류 상위 항목(UP_ITM_ID) 유무
+          o2, r2 = KM.meta_items(key, '116', 'DT_MLTM_2082')
+          print('2082 B 상위 예', [(i, n, u) for i, n, u in o2[r2[1]]][:5])
           PY
