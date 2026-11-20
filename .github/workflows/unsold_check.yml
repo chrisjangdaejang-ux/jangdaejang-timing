@@ -15,39 +15,20 @@ jobs:
           cp -r engine/scripts ./scripts
           cp engine/data/*.json data/
       - run: pip install -q requests
-      - name: KOSIS 미분양 표 찾기 + 경기 미분양 필드 (키 값은 출력하지 않음, 결과 코드·표 이름·수록 기간·집계만)
+      - name: 경기 미분양 형식 확인 (키 값은 출력하지 않음, 결과 코드·집계만)
         env:
-          KOSIS_KEY: ${{ secrets.KOSIS_KEY }}
           GG_DATA_KEY: ${{ secrets.GG_DATA_KEY }}
         run: |
           cd scripts
           python - <<'PY'
-          import os, json, collections, requests
+          import os, collections
           from common import *
-          import kosis_demo as KD, kosis_market as KM
-          key = os.environ['KOSIS_KEY'].strip()
-          URL = 'https://kosis.kr/openapi/Param/statisticsParameterData.do'
-          def get(org, tbl, se, objl, extra):
-              p = {'method': 'getList', 'apiKey': key, 'itmId': 'ALL', 'format': 'json', 'jsonVD': 'Y', 'prdSe': se, 'orgId': org, 'tblId': tbl, **extra}
-              for i, v in enumerate(objl, 1): p[f'objL{i}'] = v
-              t = requests.get(URL, params=p, timeout=120).text.strip()
-              try: return json.loads(t)
-              except Exception: return {'raw': t[:120]}
-          objs, order = KM.meta_items(key, '116', 'DT_MLTM_5328')
-          for o in order: print('분류', o, [(i, n, u) for i, n, u in objs[o]][:6])
-          ids = lambda o, names: [i for i, n, _ in objs[o] if n.strip() in names]
-          A, B_, C, D = order
-          tries = [('ALL', 'ALL', ids(C, ('계',))[0], ids(D, ('계',))[0], '1'),
-                   (objs[A][1][0], 'ALL', ids(C, ('계',))[0], ids(D, ('계',))[0], '400'),
-                   ('ALL', 'ALL', 'ALL', 'ALL', '1')]
-          for t in tries:
-              for se in ('M', 'Q'):
-                  j = get('116', 'DT_MLTM_5328', se, list(t[:4]), {'newEstPrdCnt': t[4]})
-                  if isinstance(j, list) and j:
-                      ps = sorted({str(d.get('PRD_DE')) for d in j})
-                      print(f'## 5328 {se} {t}: {len(j)}행 시점 {ps[0]}~{ps[-1]} ({len(ps)}) C2 {len({d.get("C2_NM") for d in j})}종 예 {[(d.get("C1_NM"), d.get("C2_NM"), d.get("C3_NM"), d.get("C4_NM"), d.get("DT")) for d in j[:5]]}')
-                  else: print(f'## 5328 {se} {t}: 없음', j if isinstance(j, dict) else '빈 목록')
-          # 2082 지역 분류 상위 항목(UP_ITM_ID) 유무
-          o2, r2 = KM.meta_items(key, '116', 'DT_MLTM_2082')
-          print('2082 B 상위 예', [(i, n, u) for i, n, u in o2[r2[1]]][:5])
+          import bunyang as B
+          codes = load_json(CODES_FILE, {})['codes']
+          st = {}
+          rows, ym = B.fetch_unsold(codes, st)
+          print('상태', st, '기준월', repr(ym), '단지', len(rows), '미분양', sum(x['us'] for x in rows), '코드 못 맞춤', sum(1 for x in rows if not x['g']))
+          print('구별 미분양 상위', collections.Counter({x['gn']: 0 for x in rows}) and sorted(collections.Counter(x['gn'] for x in rows for _ in range(x['us'])).items(), key=lambda t: -t[1])[:8])
+          print('준공 여부별', {k: sum(x['us'] for x in rows if x['done'] == k) for k in {x['done'] for x in rows}})
+          print('이름 예', [x['n'] for x in rows[:5]], 'id 중복', len(rows) - len({x['id'] for x in rows}))
           PY
