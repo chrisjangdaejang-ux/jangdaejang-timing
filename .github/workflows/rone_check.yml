@@ -1,0 +1,16 @@
+name: 부동산원 인증키 확인 (수동)
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: R-ONE 한 번 호출해서 결과 코드만 확인 (키 값은 출력하지 않음)
+        env:
+          REB_KEY: ${{ secrets.REB_KEY }}
+        run: |
+          if [ -z "$REB_KEY" ]; then echo "REB_KEY 비어 있음"; exit 1; fi
+          echo "키 길이: ${#REB_KEY}"
+          curl -sS -k "https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do?KEY=${REB_KEY}&STATBL_ID=A_2024_00609&DTACYCLE_CD=MM&WRTTIME_IDTFR_ID=202509&pIndex=1&pSize=3" -o r.xml
+          grep -o "<CODE>[^<]*</CODE>\|<MESSAGE>[^<]*</MESSAGE>\|<list_total_count>[^<]*</list_total_count>" r.xml | head -5
+          grep -q "INFO-000" r.xml
