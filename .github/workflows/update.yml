@@ -137,12 +137,13 @@ jobs:
           python scripts/kosis_demo.py || echo "인구 구조(연령별·인구이동·세대원수) 수집 건너뜀"      # 로그 [kosis-demo]: 쓴 표 ID·수록기간·보유 기간
           python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1 || true
 
-      - name: 시장·상권 통계 (부동산원 매입자 거주지·연령대, 주택 인허가·착공·준공, 시군구 근로소득, 서울 상권·상가정보)
-        timeout-minutes: 20
+      - name: 시장·상권 통계 (부동산원 매입자 거주지·연령대·아파트 가격지수, 주택 인허가·착공·준공, 시군구 근로소득, 서울 상권·상가정보)
+        timeout-minutes: 30
         continue-on-error: true
         env:
           KOSIS_KEY: ${{ secrets.KOSIS_KEY }}
           REB_KEY: ${{ secrets.REB_KEY }}               # R-ONE 인증키(없으면 부동산원 부분만 건너뜀)
+          RONE_IDX_CALLS: '80'                          # 부동산원 가격지수(지도 '지역 분석') 한 번 실행 호출 상한 — 나머지는 다음 실행에서 이어 받음
           SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
         run: |
@@ -195,6 +196,10 @@ jobs:
       - name: 첫 화면 요약 (공개 실거래·점수 파일만 읽어 '더 오를 단지' 순위·하락/신고가 레이스 → site/data/home/)
         continue-on-error: true
         run: python scripts/home_pulse.py site/data || echo "첫 화면 요약 건너뜀(직전 공개본 유지)"
+
+      - name: 지도 '지역 분석' 구별 요약 (공개 시세 + 청약홈 입주예정·정비사업·부동산원 지표 → site/data/region/)
+        continue-on-error: true
+        run: python scripts/region_pulse.py site/data || echo "지역 분석 요약 건너뜀(직전 공개본 유지)"
 
       - name: 광역시 정비사업 추진현황 (대구·인천 공공데이터포털 파일, 7일마다)
         continue-on-error: true
