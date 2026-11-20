@@ -221,6 +221,17 @@ jobs:
           GG_UNSOLD_FIELDS: ${{ vars.GG_UNSOLD_FIELDS || '' }}       # 필드 이름이 다를 때만 JSON으로 지정
         run: python scripts/bunyang.py > /tmp/bunyang.log 2>&1 && echo "분양 데이터 생성 완료" || echo "분양 데이터 생성 건너뜀"
 
+      - name: 재현 성적표 (매월 기준 월 백테스트 — 자료 끝 달이 바뀐 첫 실행만, 세부는 비공개 저장소 logs/backtest.log)
+        timeout-minutes: 90
+        continue-on-error: true
+        run: python scripts/backtest_monthly.py > /tmp/backtest.log 2>&1 && echo "재현 성적표 단계 끝" || echo "재현 성적표 실패 — logs/backtest.log 확인"
+
+      - name: 예측 스냅숏 (그달 첫 실행만 — 공개 자료 그대로 고정 저장, 이미 있으면 건너뜀·덮어쓰기 없음, 해시는 공개 index.json·track.json)
+        # 저장 위치: engine/data/pred_snapshots/YYYY-MM.json + ledger.json → 다음 '엔진 데이터 저장' 단계가 비공개 저장소에 커밋
+        timeout-minutes: 10
+        continue-on-error: true
+        run: python scripts/track.py snap site/data
+
       - name: 엔진 데이터 저장 (비공개 저장소)
         if: always()
         run: |
