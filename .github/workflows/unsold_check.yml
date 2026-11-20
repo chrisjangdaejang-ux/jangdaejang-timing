@@ -1,0 +1,67 @@
+name: 미분양 표 확인 (수동, 임시)
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+      - run: pip install -q requests
+      - name: KOSIS 미분양 표 찾기 + 경기 미분양 필드 (키 값은 출력하지 않음, 결과 코드·표 이름·수록 기간·집계만)
+        env:
+          KOSIS_KEY: ${{ secrets.KOSIS_KEY }}
+          GG_DATA_KEY: ${{ secrets.GG_DATA_KEY }}
+        run: |
+          cd scripts
+          python - <<'PY'
+          import os, json, collections
+          from common import *
+          import kosis_demo as KD, kosis_market as KM
+          key = os.environ['KOSIS_KEY'].strip()
+          codes = load_json(CODES_FILE, {})['codes']
+          seen = []
+          for q in ['미분양주택현황', '시군구별 미분양현황', '시도별 미분양현황', '공사완료후 미분양현황', '준공후 미분양', '규모별 미분양현황', '미분양 주택']:
+              for o, t, n in KD.search(key, q):
+                  if '미분양' in n and (o, t) not in seen: seen.append((o, t))
+          for c in [('116', 'DT_MLTM_2082'), ('116', 'DT_1YL202004E'), ('116', 'DT_1YL202005E'), ('116', 'DT_MLTM_2080'), ('116', 'DT_MLTM_2081'), ('116', 'DT_MLTM_2083')]:
+              if c not in seen: seen.append(c)
+          print('후보', seen)
+          for o, t in seen[:25]:
+              nm = (KD.meta(key, o, t, 'TBL') or [{}])[0].get('TBL_NM', '')
+              prd = KD.meta(key, o, t, 'PRD'); ses = {}
+              for d in prd:
+                  se, de = str(d.get('PRD_SE') or ''), str(d.get('PRD_DE') or '')
+                  if de: ses.setdefault(se, []).append(de)
+              objs, order = KM.meta_items(key, o, t)
+              ro, rm = KM.region_obj(codes, objs, order) if order else (None, {})
+              print(f'## {o}/{t} "{nm}" 수록 {", ".join(f"{k}:{min(v)}~{max(v)}({len(v)})" for k, v in ses.items()) or "확인 불가"}')
+              for ob in order + (['ITEM'] if 'ITEM' in objs else []):
+                  print(f'   분류 {ob} {len(objs[ob])}개: {[n for _, n, _ in objs[ob]][:12]}')
+              print(f'   지역 분류 {ro} → 시군구 {len({x for v in rm.values() for x in v})}곳')
+          PY
+          python - <<'PY'
+          import os, collections
+          import bunyang as B
+          key = os.environ.get('GG_DATA_KEY', '').strip()
+          if not key: print('GG 키 없음'); raise SystemExit
+          raw, total, pages = B.gg_fetch('CopertnhousngUnsol', key)
+          print('경기 행', len(raw), '전체', total)
+          n = lambda v: B.num(B.s(v)) or 0
+          mt = [n(d.get('MT_HSHLD_CNT')) for d in raw]; tt = [n(d.get('TOT_LOTOUT_HSHLD_CNT')) for d in raw]
+          print('MT 합', sum(mt), 'MT>0 행', sum(1 for x in mt if x > 0), 'TOT 합', sum(tt), 'MT<=TOT 행', sum(1 for a, b in zip(mt, tt) if a <= b), '/', len(raw))
+          for f in ('COMPLTN_YN_DIV_NM', 'PRVATE_PUBL_DIV_NM', 'RENT_LOTOUT_DIV_NM', 'SIGUN_NM', 'JURISD_AM_GUN_AM_GUN_NM'):
+              print(f, collections.Counter(B.s(d.get(f)) for d in raw).most_common(8))
+          print('RM 예', collections.Counter(B.s(d.get('RM'))[:30] for d in raw).most_common(6))
+          sub = sorted(B.s(d.get('LOTOUT_SUBSCRPT_DE')) for d in raw if B.s(d.get('LOTOUT_SUBSCRPT_DE')))
+          print('청약일 범위', sub[:1], sub[-1:], '입주예정 예', [B.s(d.get('MOVEIN_PREARNGE_DE')) for d in raw[:3]])
+          print('면적 예', [B.s(d.get('SCALE_ACCTO_AR')) for d in raw[:5]], '위치 예', [B.s(d.get('CNSTRCT_LOCPLC_ADDR'))[:30] for d in raw[:3]])
+          print('준공 후 미분양(준공여부별 MT 합)', {k: sum(n(d.get('MT_HSHLD_CNT')) for d in raw if B.s(d.get('COMPLTN_YN_DIV_NM')) == k) for k in {B.s(d.get('COMPLTN_YN_DIV_NM')) for d in raw}})
+          PY
