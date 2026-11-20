@@ -1,10 +1,10 @@
-2026-11-20 trade done=4486 left=15349 calls=4500 from=201101 target=200601 missing=15349 eta=2026-11-22
-2026-11-20 rent done=4376 left=23424 calls=4500 from=201809 target=201101 missing=23424 eta=2026-11-23
-2026-11-20 villa done=395 left=32373 calls=399 from=202008 target=201001 missing=32373 eta=2026-11-24
-2026-11-20 rh_rent done=393 left=43722 calls=400 from=202504 target=201101 missing=43722 eta=2026-11-25
-2026-11-20 sh_rent done=400 left=43775 calls=406 from=202504 target=201101 missing=43775 eta=2026-11-25
-2026-11-20 offi_rent done=392 left=43724 calls=400 from=202504 target=201101 missing=43724 eta=2026-11-25
-2026-11-20 offi_trade done=446 left=43701 calls=451 from=202505 target=201101 missing=43701 eta=2026-11-25
-2026-11-20 nrg_trade done=2400 left=46496 calls=2400 from=202603 target=201101 missing=46496 eta=2026-11-26
-2026-11-20 land_trade done=0 left=None calls=1
-2026-11-20 sh_trade done=2400 left=46496 calls=2400 from=202603 target=201101 missing=46496 eta=2026-11-26
+2026-11-21 trade done=4931 left=10418 calls=5000 from=201101 target=200601 missing=10418 eta=2026-11-23
+2026-11-21 rent done=4909 left=18515 calls=5000 from=201702 target=201101 missing=18515 eta=2026-11-24
+2026-11-21 villa done=2400 left=29973 calls=2400 from=201911 target=201001 missing=29973 eta=2026-11-25
+2026-11-21 rh_rent done=2391 left=41331 calls=2400 from=202407 target=201101 missing=41331 eta=2026-11-26
+2026-11-21 sh_rent done=2375 left=41400 calls=2400 from=202407 target=201101 missing=41400 eta=2026-11-26
+2026-11-21 offi_rent done=2391 left=41333 calls=2400 from=202407 target=201101 missing=41333 eta=2026-11-26
+2026-11-21 offi_trade done=2400 left=41301 calls=2400 from=202407 target=201101 missing=41301 eta=2026-11-26
+2026-11-21 nrg_trade done=2400 left=44096 calls=2400 from=202506 target=201101 missing=44096 eta=2026-11-26
+2026-11-21 land_trade done=999 left=46898 calls=1004 from=202605 target=201101 missing=46898 eta=2026-11-27
+2026-11-21 sh_trade done=2400 left=44096 calls=2400 from=202506 target=201101 missing=44096 eta=2026-11-26
