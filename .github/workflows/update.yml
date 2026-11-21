@@ -289,7 +289,7 @@ jobs:
         run: python scripts/bunyang.py > /tmp/bunyang.log 2>&1 && echo "분양 데이터 생성 완료" || echo "분양 데이터 생성 건너뜀"
 
       - name: 소규모 신축 현장 (건축HUB 건축인허가 — 빌라·도시형·소형 오피스텔·상가, 공개 지도 레이어 site/data/newbuild.json · 주소가 든 영업 목록은 비공개 엔진 저장소 data/private/ 에만)
-        # 활용신청 승인 전이면 첫 호출에서 '활용신청 필요'만 남기고 끝남(logs/newbuild.log). 승인되면 다음 실행부터 자동으로 켜짐
+        # 2026-11-21 승인(ArchPmsHubService). 오류는 logs/newbuild.log·data/newbuild_state.json status 로 구분: serviceNotFound(주소 틀림·승인 직후) / notRegistered / quota
         continue-on-error: true
         timeout-minutes: 40
         env:
@@ -299,6 +299,8 @@ jobs:
           NEWBUILD_SIDO: ${{ vars.NEWBUILD_SIDO || '11,28,41' }}
         run: |
           if [ ! -d engine/data ]; then echo "엔진 저장소 없음 → 신축 현장 건너뜀(주소 파일을 공개 저장소에 두지 않기 위해)"; exit 0; fi
+          # 시험 호출 1회: HTTP 상태·resultCode·판정(ok/serviceNotFound=noService/notRegistered/quota)·건수만 Actions 로그에(키·주소 없음)
+          python scripts/newbuild.py probe || echo "시험 호출 실패(본 수집은 계속)"
           python scripts/newbuild.py > /tmp/newbuild.log 2>&1 && echo "신축 현장 단계 끝" || echo "신축 현장 단계 건너뜀 — logs/newbuild.log 확인"
 
       - name: 청약 공고별 분양가·입지 분석 (청약·분양·실거래·점수·성적표 공개 자료 → site/data/chungyak/price.json·price/·plan_near.json(분양 예정 주변 신축 시세), 세부는 비공개 저장소 logs/cy_price.log)
