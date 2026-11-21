@@ -4,6 +4,8 @@ __pycache__/
 .DS_Store
 # 비공개 엔진(jangdaejang-engine)에서 실행할 때 불러오는 것들 — 공개 저장소에 올리지 않음
 scripts/
+# 워크플로 공용 스크립트(정기 실행 확인·주간 발표)는 올림
+!/.github/scripts/
 engine/
 data/rail.json
 data/supply.json

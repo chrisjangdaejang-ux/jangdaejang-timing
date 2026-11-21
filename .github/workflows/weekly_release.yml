@@ -1,19 +1,39 @@
 name: 주간 실거래 동향 발표 (매주 월요일 오전 7시)
 # 계산(weekly.yml, 월요일 03:43)은 결과를 비공개 엔진 data/weekly 에만 둔다. 이 워크플로가 발표 시각에 공개 저장소(jangdaejang-data)로 올린다.
 #  · 발표 시각이 지난 판만 올림(weekly.py publish --now). 모닝 브리핑의 '지난주 우리 지역은?' 칸(engine data/weekly/brief_wk → data/brief/wk/)도 함께.
-#  · 7시 실행이 늦거나 실패해도 7시 30분에 한 번 더(이미 올렸으면 바뀐 것 없음으로 끝남). 실패하면 직전 공개본 그대로.
+#  · 7시 실행이 빠지거나 늦거나 실패해도 예비 07:20·07:45·08:30 + 감시(watchdog.yml)가 다시 함. 7시 이후 이미 성공했으면 확인 단계에서 끝나고,
+#    돌더라도 같은 판을 그대로 올림(바뀐 것 없음). 7시 전에는 어떤 실행도 발표 전 판을 올리지 않음(weekly.py publish --now). 실패하면 직전 공개본 그대로.
 on:
   schedule:
     - cron: '0 22 * * 0'      # 한국 시각 월요일 07:00 (발표 시각 — 일부러 정각)
-    - cron: '30 22 * * 0'     # 한국 시각 월요일 07:30 (다시 확인)
+    # 예비(7시 이후만 — 7시 전 발표 없음). 7시 이후 이미 성공했으면 확인 단계에서 바로 끝나고, 돌더라도 같은 판을 그대로 올림(바뀐 것 없음)
+    - cron: '20 22 * * 0'     # 월 07:20
+    - cron: '45 22 * * 0'     # 월 07:45
+    - cron: '30 23 * * 0'     # 월 08:30
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read                        # 확인 단계가 오늘 실행 기록을 봄
 concurrency:
   group: weekly-release
   cancel-in-progress: false
 jobs:
+  guard:                               # 정기 실행이 여러 번(원래 + 예비) 들어와도 오늘 이미 성공했으면 본 작업 건너뜀(.github/scripts/sched.py)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/sched.py guard weekly_release
   release:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

@@ -11,13 +11,33 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '7 20 * * *'      # 한국 시각 오전 5:07
+    # 예비(GitHub 가 정기 실행을 빼먹거나 늦게 돌리는 날 대비 — 2026-11-22 실제로 빠짐). 이미 성공했으면 확인 단계에서 바로 끝남
+    - cron: '27 20 * * *'     # 05:27
+    - cron: '52 20 * * *'     # 05:52
+    - cron: '37 21 * * *'     # 06:37 (발송 7시대 전 마지막)
 permissions:
   contents: read
+  actions: read                        # 확인 단계가 오늘 실행 기록을 봄
 concurrency:
   group: brief
   cancel-in-progress: false
 jobs:
+  guard:                               # 정기 실행이 여러 번(원래 + 예비) 들어와도 오늘 이미 성공했으면 본 작업 건너뜀(.github/scripts/sched.py)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/sched.py guard brief
   brief:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:

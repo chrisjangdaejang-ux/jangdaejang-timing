@@ -1,0 +1,50 @@
+name: 정기 실행 감시 (매일 05~09시)
+# GitHub 는 바쁠 때 정기 실행(schedule)을 빼먹거나 늦게 돌린다(2026-11-22 모닝 브리핑·검색용 페이지가 아예 안 돎).
+# 각 워크플로에 예비 정기 시각 + 확인 단계(.github/scripts/sched.py guard)를 두었고, 이 감시는 그것까지 빠진 날을 위한 두 번째 안전장치.
+#  · 30분마다(05:13~08:43 KST) 오늘 할 일이 끝났는지 확인: 모닝 브리핑(공개 market.json 날짜까지)·검색용 페이지·단지 시설(오전),
+#    월요일엔 주간 계산·주간 발표(7시 이후만). 정해 둔 시각이 지났는데 성공한 실행이 없고 도는 중인 것도 없으면 REST 로 다시 실행(하루 최대 2번).
+#  · 결과는 data/schedule_health.json 에 하루 한 줄씩(succeeded / recovered / missing …) — GitHub 가 얼마나 자주 빼먹는지 보려고.
+#  · 이 감시도 빠질 수 있으니 예비 정기 시각이 먼저다. 수동 실행(dry_run=true)은 다시 실행하지 않고 확인만.
+on:
+  schedule:
+    - cron: '13,43 20-23 * * *'   # 한국 시각 05:13·05:43 … 08:13·08:43
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true 면 확인만(다시 실행·기록 안 함)'
+        default: 'false'
+permissions:
+  contents: write                  # data/schedule_health.json 기록
+  actions: write                   # 빠진 워크플로 다시 실행(POST /actions/workflows/{file}/dispatches)
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github/scripts/
+            data/schedule_health.json
+      - name: 오늘 할 일 확인 · 빠진 것 다시 실행
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/sched.py watchdog ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+      - name: 기록 (data/schedule_health.json)
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            python3 .github/scripts/sched.py merge /tmp/health_today.json
+            git add data/schedule_health.json
+            git diff --cached --quiet && { echo "기록 바뀐 것 없음"; exit 0; }
+            git commit -qm "정기 실행 기록 $(TZ=Asia/Seoul date +%F)"
+            git push -q origin HEAD:main && { echo "기록함"; exit 0; }
+            sleep $((i * 7))
+          done
+          echo "::warning::기록을 올리지 못함(다음 감시 때 다시)"
