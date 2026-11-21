@@ -5,6 +5,7 @@ name: 모닝 브리핑 (매일 새벽)
 #  · 새로 올라온 거래 = 국토부 공개 자료에 이번 확인에서 처음 보인 거래(비공개 엔진 data/brief/seen.json.gz 와 비교). 확인 기간을 결과에 함께 싣는다.
 #  · 구독 동네는 이번 달·지난달을 이 단계에서 한 번 더 받아(BRIEF_CALL_BUDGET, 기본 300회/종류) '어제 올라온 것'을 매일 잡는다.
 #  · 새로 발표된 정책·교통·공급 소식: 정부·지자체 공식 보도자료 목록(제목·날짜·부처·링크만)에서 부동산 관련만 골라 ①과 그 동네 ②에 싣는다(엔진 scripts/policy_news.py).
+#  · 월요일 새벽 주간 실거래 동향(weekly.yml) 계산 뒤 첫 브리핑에 '지난주 우리 지역은?' 칸(공개 data/weekly/latest.json, 엔진 brief.weekly_pick).
 #  · 각 단계가 실패해도 다른 단계·정기 수집(update.yml)에는 영향 없음. 발송은 Apps Script(briefDaily, 오전 7시대)가 이 결과를 읽어서 함.
 on:
   workflow_dispatch:
@@ -46,7 +47,7 @@ jobs:
         run: |
           git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" pub
           cd pub && git sparse-checkout set --no-cone /data/policy.json /data/index.json /data/bunyang/notices.json /data/brief/ \
-            /data/evidence.json '/data/s[0-9][0-9].json' /data/chungyak/notices.json /data/chungyak/price.json /data/track.json
+            /data/evidence.json '/data/s[0-9][0-9].json' /data/chungyak/notices.json /data/chungyak/price.json /data/track.json /data/weekly/latest.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

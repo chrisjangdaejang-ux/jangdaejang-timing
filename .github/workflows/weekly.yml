@@ -1,0 +1,97 @@
+name: 주간 실거래 동향 (매주 월요일 새벽)
+# 엔진 scripts/weekly.py — 국토교통부 아파트 매매 실거래가로 지난주(월~일 계약) 지역별 같은 집 비교 변동률·거래 건수·신고가 비율을 계산.
+#  · 계산 직전에 전국 시군구의 최근 3개월을 다시 받는다(weekly.py fetch, 원자료 저장소는 건드리지 않음 — 받은 날을 지역마다 기록).
+#  · 확정 안 된 최근 6주는 매주 다시 계산해 새 판(제2판·제3판 …)을 낸다. 주 끝 + 35일 자료면 확정. 판은 비공개 엔진 data/weekly/ 에 고치지 않고 쌓는다.
+#  · 한국부동산원 주간 아파트 매매가격지수(R-ONE, REB_KEY)는 참고 칸 — 실패해도 계산은 그대로(그 칸만 비움).
+#  · 결과: 공개 저장소 jangdaejang-data gh-pages 의 data/weekly/ (index·latest·주별 최신 판·판마다 JSON·CSV). 모닝 브리핑(brief.yml 05:07)이 latest.json 을 읽어 '지난주 우리 지역은?' 칸을 싣는다.
+#  · mode=probe: 부동산원 주간 표 찾기만 시험(공개·저장 없음).
+on:
+  schedule:
+    - cron: '13 17 * * 0'     # 한국 시각 월요일 02:13 (브리핑 05:07 전에 끝나게)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'build(계산·공개) 또는 probe(부동산원 주간 표 확인만)'
+        default: 'build'
+permissions:
+  contents: read
+concurrency:
+  group: weekly
+  cancel-in-progress: false
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: 수집 원자료만 받기 (매매·수집 기록·시군구 코드)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/raw/
+            data/manifest.json
+            data/sgg_codes.json
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          echo "ENGINE_SHA=$(git -C engine rev-parse HEAD)" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q requests certifi
+      - name: 부동산원 주간 아파트 매매가격지수 (참고 칸)
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          REB_KEY: ${{ secrets.REB_KEY }}
+          JDJ_DATA: ${{ github.workspace }}/data
+        run: |
+          OUT=engine/data/weekly/rone_ws.json
+          [ "${{ github.event.inputs.mode }}" = "probe" ] && OUT=/tmp/rone_probe.json
+          mkdir -p engine/data/weekly
+          python engine/scripts/rone.py weekly --out "$OUT" || echo "부동산원 주간 지수 건너뜀(참고 칸만 비움)"
+      - name: 최근 3개월 실거래 다시 받기 (전국)
+        if: github.event.inputs.mode != 'probe'
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          JDJ_DATA: ${{ github.workspace }}/data
+          WEEKLY_CALL_BUDGET: ${{ vars.WEEKLY_CALL_BUDGET || '1000' }}
+        run: python engine/scripts/weekly.py fetch --out /tmp/fresh
+      - name: 지난주 계산·지난 판 다시 계산 (비공개 보관 → 공개 파일)
+        if: github.event.inputs.mode != 'probe'
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+        run: |
+          F=""; [ -d /tmp/fresh/raw ] && F="--fresh /tmp/fresh"
+          python engine/scripts/weekly.py build --site /tmp/wk $F | tee /tmp/weekly.log
+      - name: 보관본 저장 (비공개 엔진 data/weekly)
+        if: github.event.inputs.mode != 'probe'
+        run: |
+          cd engine
+          mkdir -p logs && cp /tmp/weekly.log logs/ 2>/dev/null || true
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/weekly logs/weekly.log
+          git diff --cached --quiet || git commit -qm "주간 실거래 동향 $(date -u +%F)"
+          for i in 1 2 3 4; do git pull -q --rebase -X theirs && git push -q && break; sleep 10; done
+      - name: 공개 저장소에 올리기 (data/weekly 만, 다른 갱신과 겹치면 다시 시도)
+        if: github.event.inputs.mode != 'probe'
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          for i in 1 2 3 4; do
+            rm -rf /tmp/pub2
+            git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2
+            cd /tmp/pub2 && git sparse-checkout set --no-cone /data/weekly/
+            rm -rf data/weekly && mkdir -p data && cp -r /tmp/wk/weekly data/weekly
+            git add -A data/weekly
+            git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "주간 실거래 동향 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
+            git push -q && { echo "공개 저장소로 내보냄"; exit 0; }
+            cd - > /dev/null; sleep 20
+          done
+          echo "올리지 못함 — 보관본은 저장됨, 다음 실행의 publish 가 다시 씀"; exit 1
