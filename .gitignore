@@ -25,6 +25,10 @@ data/rebuild_fix.json
 data/renewal.json
 data/bunyang_xy.json
 data/seoul_station_master.json
+# 정비구역 경계·지번 좌표 캐시(zone_bounds.py)·공식 구역 경계(devmap.py) — 엔진 비공개 저장소에만(지번 좌표는 민간 검색 좌표라 공개 금지)
+data/zone_poly.json
+data/villa_xy.json
+data/devmap_bounds.json
 
 # 사이트 생성 결과는 공개 저장소(jangdaejang-data gh-pages)로만 내보낸다 — 여기 커밋하면 정기 실행마다 이력이 수십 MB씩 커짐
 site/data/
