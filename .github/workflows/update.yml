@@ -106,8 +106,11 @@ jobs:
           RUNS_PER_DAY: '4'
           MAX_MINUTES: ${{ vars.EXTRA_RENT_MAX_MINUTES || '15' }}
           WORKERS: '4'
+          # 토지 매매는 개발계정 하루 한도 1,000회(이 API 따로) → 수집기 기본 980. 운영계정 승인 후 변수 LAND_DAILY_CAP 만 올리면 됨.
+          #  2006-01부터 과거 채우기라 다른 종류가 다 돈 뒤 맨 마지막에 돈다.
+          DAILY_CAP_LAND_TRADE: ${{ vars.LAND_DAILY_CAP || '' }}
         run: |
-          for k in rh_rent offi_rent offi_trade sh_rent nrg_trade land_trade sh_trade; do KIND=$k python scripts/collect.py || echo "$k 수집 건너뜀"; done
+          for k in rh_rent offi_rent offi_trade sh_rent nrg_trade sh_trade land_trade; do KIND=$k python scripts/collect.py || echo "$k 수집 건너뜀"; done
 
       - name: 단지 정보 수집 (세대수·사용승인일, K-apt)
         timeout-minutes: 20
