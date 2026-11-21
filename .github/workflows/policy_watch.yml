@@ -1,5 +1,5 @@
 name: 부동산 정책 수집 (매일)
-# 정책브리핑 RSS·법제처 입법예고(키 없음) → 새 정책 '후보 목록'(비공개 엔진 data/policy_candidates.json, 대표 승인 전엔 화면에 안 나감)
+# 부처 보도자료 목록(국토부·정책브리핑 부처·금융위 — 정책브리핑 RSS 는 2026-07-01 중단)·법제처 입법예고(키 없음) → 새 정책 '후보 목록'(비공개 엔진 data/policy_candidates.json, 대표 승인 전엔 화면에 안 나감)
 # 국회 의안정보(ASSEMBLY_KEY 있을 때) → 이미 승인된 법안 정책의 단계(국회 제출·심사·통과·철회)만 공식 API 확인 시 자동 반영(policy.json)
 # 개발사업(호재): 서울시 새소식 RSS·고시 목록, 정책브리핑(국토부) → 새 사업 후보(비공개 engine data/devproj_candidates.json),
 #   승인된 사업(devproj.json)은 공식 출처 제목에서 완료형 단계(착공식·결정 고시 등)가 확인될 때만 단계 자동 추가
@@ -35,12 +35,17 @@ jobs:
         continue-on-error: true
         timeout-minutes: 8
         run: cd engine && python scripts/devproj_watch.py | tee /tmp/devproj_watch.log
+      - name: 수집 상태 요약 (연속 3일 이상 실패하면 경고)
+        # 장부: 비공개 엔진 data/watch/{policy_watch,devproj_watch}.json(마지막 성공일·연속 실패 일수·출처별 결과)
+        if: always()
+        run: cd engine && python scripts/watch_status.py summary policy_watch devproj_watch
       - name: 엔진 데이터 저장 (비공개 저장소)
+        if: always()
         run: |
           cd engine
           mkdir -p logs && cp /tmp/policy_watch.log /tmp/devproj_watch.log logs/ 2>/dev/null || true
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
-          for f in data/policy.json data/policy_candidates.json data/devproj.json data/devproj_candidates.json logs/policy_watch.log logs/devproj_watch.log; do [ -f "$f" ] && git add "$f"; done; true
+          for f in data/policy.json data/policy_candidates.json data/devproj.json data/devproj_candidates.json data/watch/policy_watch.json data/watch/devproj_watch.json logs/policy_watch.log logs/devproj_watch.log; do [ -f "$f" ] && git add "$f"; done; true
           git diff --cached --quiet || git commit -qm "정책·개발사업 수집 $(date -u +%F)"
           git pull -q --rebase -X theirs || true
           git push -q || true
