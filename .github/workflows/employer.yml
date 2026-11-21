@@ -1,0 +1,59 @@
+name: 반도체 고용 거점 (국민연금 사업장·DART, 매월)
+# 국민연금 가입 사업장(삼성전자 기흥·화성·평택·수원, SK하이닉스 이천·청주) 월별 가입자 수·신규·상실 + (DART_KEY 가 있으면) 영업이익·직원 수·1인 평균 급여.
+# 받은 원자료·누적 기록은 비공개 엔진 저장소 data/employer/ 에만 저장한다. 이 공개 저장소에는 아무것도 커밋하지 않는다.
+# 화면 로그에는 상태·개수만 — 사업장 이름·주소·세부 로그는 엔진 logs/nps.log·dart.log. 모델에는 쓰지 않음(엔진 docs/employer_income_study.md).
+on:
+  schedule:
+    - cron: '37 1 25 * *'      # 매월 25일 10:37(한국 시각) — 공단 월간 자료 갱신(매월 20일 무렵) 뒤
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: '이름 검색 한 번에 받을 최대 쪽 수(100행씩)'
+        default: '30'
+permissions:
+  contents: read
+concurrency:
+  group: employer
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          mkdir -p engine/data/employer engine/logs
+          pip install -q requests
+      - name: 국민연금 가입 사업장
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          EMPLOYER_DIR: ${{ github.workspace }}/engine/data/employer
+          NPS_MAX_PAGES: ${{ github.event.inputs.max_pages || '30' }}
+        run: |
+          cd engine
+          python scripts/nps_workplace.py > /tmp/nps.log 2>&1 || echo "국민연금 사업장 수집 실패"
+          python -c "import json;d=json.load(open('data/employer/nps.json'));print('상태', d.get('status'), '· 거점별 사업장 수', {k: len(v.get('wkpl', [])) for k, v in d.get('sites', {}).items()}, '· 검색 행', d.get('search_rows'))" || true
+      - name: DART 실적·급여 (DART_KEY 없으면 건너뜀)
+        continue-on-error: true
+        env:
+          DART_KEY: ${{ secrets.DART_KEY }}
+          EMPLOYER_DIR: ${{ github.workspace }}/engine/data/employer
+        run: |
+          cd engine
+          python scripts/dart_pay.py > /tmp/dart.log 2>&1 || echo "DART 수집 실패"
+          grep -E "건너뜀|상태|인증키|한도" /tmp/dart.log | head -3 || true
+          [ -f data/employer/dart.json ] && python -c "import json;print('DART 상태', json.load(open('data/employer/dart.json')).get('status'))" || true
+      - name: 엔진에 저장 (비공개 저장소)
+        if: always()
+        run: |
+          [ -d engine ] || exit 0
+          cp /tmp/nps.log /tmp/dart.log engine/logs/ 2>/dev/null || true
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/employer logs/nps.log logs/dart.log 2>/dev/null || true
+          git diff --cached --quiet || git commit -qm "고용 거점 자료 $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true
