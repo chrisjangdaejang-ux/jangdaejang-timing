@@ -1,0 +1,58 @@
+name: 개발·교통 예정 지도 — 공식 구역 경계 받기 (매주)
+# 엔진 scripts/devmap.py fetch: DB에 적힌 공식 이름과 꼭 맞는 구역 경계만 브이월드(국토교통부 공간정보 오픈플랫폼)에서 받아
+# 비공개 엔진 data/devmap_bounds.json 에 저장(30일마다 새로). 공개 지도 파일(devmap.json)은 정기 갱신(update.yml)이 만든다.
+# 수동 실행: mode=probe 는 레이어 접속·항목만 확인하고 아무것도 저장하지 않음(layers 로 레이어 골라 확인 가능).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'fetch(받아서 저장) / probe(접속·항목 확인만)'
+        default: 'fetch'
+      layers:
+        description: 'probe 때 확인할 브이월드 레이어(쉼표로, 비우면 전부)'
+        default: ''
+      force:
+        description: 'fetch 때 30일 안이어도 다시 받기(yes)'
+        default: ''
+  schedule:
+    - cron: '37 18 * * 2'     # 한국 시각 수요일 새벽 3:37
+permissions:
+  contents: read
+concurrency:
+  group: devmap
+  cancel-in-progress: false
+jobs:
+  devmap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 공식 구역 경계 받기
+        env:
+          VWORLD_KEY: ${{ secrets.VWORLD_KEY }}
+          MODE: ${{ github.event.inputs.mode || 'fetch' }}
+          LAYERS: ${{ github.event.inputs.layers || '' }}
+          FORCE: ${{ github.event.inputs.force || '' }}
+        run: |
+          pip install -q requests
+          cd engine
+          case "$MODE" in
+            probe) python scripts/devmap.py probe "$LAYERS" ;;
+            *) if [ "$FORCE" = "yes" ]; then python scripts/devmap.py fetch --force; else python scripts/devmap.py fetch; fi ;;
+          esac
+      - name: 비공개 엔진에 저장
+        if: github.event.inputs.mode != 'probe'
+        run: |
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/devmap_bounds.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -qm "공식 구역 경계(개발·교통 예정 지도) $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done
