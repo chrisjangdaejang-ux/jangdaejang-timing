@@ -151,13 +151,15 @@ jobs:
           python scripts/rone.py || echo "부동산원 매입자 거주지·연령대 수집 건너뜀"      # 로그 [rone]
           python scripts/sangkwon.py || echo "상권 통계 수집 건너뜀"                       # 로그 [sangkwon]
 
-      - name: 지하철 역별 승하차 (서울 열린데이터 — 오피스텔 임대수요 지표, 서울 역만)
+      - name: 지하철 역 위치(서울시 역사마스터 정보, 공공) + 역별 승하차 (서울 열린데이터)
+        # 역 위치 표를 매일 다시 받음 → 새로 개통한 역이 들어오면 다음 '좌표' 단계에서 신설역이 공공 좌표로 자동 전환('개통 예정' 표시 빠짐)
         timeout-minutes: 10
         continue-on-error: true
         env:
           SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
-          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
-        run: python scripts/subway.py || echo "지하철 승하차 건너뜀"
+        run: |
+          python scripts/station_pub.py fetch || echo "역 위치 표 갱신 건너뜀(이전 표 그대로)"
+          python scripts/subway.py || echo "지하철 승하차 건너뜀"
 
       - name: 좌표 (브이월드 - 단지·역 위치)
         timeout-minutes: 20
@@ -268,7 +270,7 @@ jobs:
         if: always()
         run: |
           [ -d engine ] || exit 0
-          for f in rail.json supply.json station_xy.json supply_xy.json model.json model5.json model_region.json model_offi.json rebuild_zones.json bunyang_xy.json zone_poly.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
+          for f in rail.json supply.json station_xy.json seoul_station_master.json supply_xy.json model.json model5.json model_region.json model_offi.json rebuild_zones.json bunyang_xy.json zone_poly.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
           mkdir -p engine/logs && cp /tmp/*.log engine/logs/ 2>/dev/null || true
           cd engine
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
