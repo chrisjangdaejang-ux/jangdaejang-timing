@@ -38,12 +38,13 @@ jobs:
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
         run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
-      - name: 공개 데이터 일부 받기 (정책·분양 공고·지난 브리핑)
+      - name: 공개 데이터 일부 받기 (정책·분양·청약 공고·분양가 분석·단지 자료·근거·예측 성적·지난 브리핑)
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
         run: |
           git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" pub
-          cd pub && git sparse-checkout set --no-cone /data/policy.json /data/index.json /data/bunyang/notices.json /data/brief/
+          cd pub && git sparse-checkout set --no-cone /data/policy.json /data/index.json /data/bunyang/notices.json /data/brief/ \
+            /data/evidence.json '/data/s[0-9][0-9].json' /data/chungyak/notices.json /data/chungyak/price.json /data/track.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
