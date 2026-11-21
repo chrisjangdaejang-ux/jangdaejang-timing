@@ -199,6 +199,10 @@ jobs:
         continue-on-error: true
         run: python scripts/home_pulse.py site/data || echo "첫 화면 요약 건너뜀(직전 공개본 유지)"
 
+      - name: 매물 설명서용 주변 중학교·지하철역 위치 (학교알리미·서울 열린데이터 공개 좌표 → site/data/poi/)
+        continue-on-error: true
+        run: python scripts/content_kit.py poi site/data || echo "주변 위치 건너뜀(직전 공개본 유지)"
+
       - name: 지도 '지역 분석' 구별 요약 (공개 시세 + 청약홈 입주예정·정비사업·부동산원 지표 → site/data/region/)
         continue-on-error: true
         run: python scripts/region_pulse.py site/data || echo "지역 분석 요약 건너뜀(직전 공개본 유지)"
