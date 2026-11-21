@@ -218,6 +218,10 @@ jobs:
         continue-on-error: true
         run: python scripts/life.py build site/data || echo "학군·생활 정보 건너뜀(직전 공개본 유지)"
 
+      - name: 단지 시설 (비공개 엔진 data/private/facility 의 K-apt 상세 정리본 × 공개 단지 목록 → site/data/fac/, 커뮤니티 시설·주차·CCTV·승강기)
+        continue-on-error: true
+        run: python scripts/facility.py build site/data 2>&1 | tee -a /tmp/build.log || echo "단지 시설 건너뜀(직전 공개본 유지)"
+
       - name: 지도 '지역 분석' 구별 요약 (공개 시세 + 청약홈 입주예정·정비사업·부동산원 지표 → site/data/region/)
         continue-on-error: true
         run: python scripts/region_pulse.py site/data || echo "지역 분석 요약 건너뜀(직전 공개본 유지)"
