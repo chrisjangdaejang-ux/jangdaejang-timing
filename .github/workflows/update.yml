@@ -205,6 +205,11 @@ jobs:
         continue-on-error: true
         run: python scripts/home_pulse.py site/data || echo "첫 화면 요약 건너뜀(직전 공개본 유지)"
 
+      - name: 첫 화면 '하루 세 번' 카드·관심 목록 변화·오늘의 집값 맞혀 보기 (직전 공개본과 비교해 처음 보인 거래 → site/data/today/)
+        # 신고가·큰 하락·특수 거래 의심 표시와 TOP 은 모닝 브리핑과 같은 함수(brief.judge·market_trades). 직전 공개본(/tmp/prev)이 없으면 비교만 건너뜀
+        continue-on-error: true
+        run: python scripts/today_feed.py site/data /tmp/prev/data || echo "오늘 카드 건너뜀(직전 공개본 유지)"
+
       - name: 매물 설명서용 주변 중학교·지하철역 위치 (학교알리미·서울 열린데이터 공개 좌표 → site/data/poi/)
         continue-on-error: true
         run: python scripts/content_kit.py poi site/data || echo "주변 위치 건너뜀(직전 공개본 유지)"
