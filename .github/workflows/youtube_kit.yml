@@ -1,0 +1,101 @@
+name: 장대장TV 주간 유튜브 키트 (일요일 밤)
+# 엔진 scripts/youtube_kit.py — 집예보가 이미 모으는 공개 자료(국토부 실거래 매매·전월세, 청약홈 공고, 공식 보도자료, 미래가치 등수 변화)만으로
+# 긴 영상 주제 후보 3개·대본(프롬프터용)·쇼츠 5개·제목·썸네일 문구·설명란(자연/광고용)·고정 댓글·커뮤니티 글 2개·광고 추천 + B-roll 그림을 만든다.
+#  · 그림(공개 자료만): 공개 저장소 jangdaejang-data gh-pages 의 data/yt/{128비트 난수}/ (매주 지난 폴더는 지우고 이번 주 것만)
+#  · 글: 공개 저장소에 올리지 않음 → Apps Script ytKitPut(BRIEF_PULL_TOKEN)으로 보내고, 월요일 오전 6시대 ytKitSend 가 대표에게 메일(그림 zip 첨부)
+#    + 비공개 엔진 data/youtube_kit/{주차}/ 에도 남김(메일이 안 갔을 때 꺼내 쓰기용)
+#  · 규칙(소제목·시간 표시·괄호 없음, 대본 숫자는 모두 자료에서, 기본 해시태그·utm 링크) 검사에 걸리면 이 실행은 실패로 끝나고 메일 대신 '키트 없음' 안내가 감.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 13 * * 0'      # 한국 시각 일요일 오후 10:07
+permissions:
+  contents: read
+concurrency:
+  group: youtube-kit
+  cancel-in-progress: false
+jobs:
+  kit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: '1'
+      BRIEF_API: ${{ vars.BRIEF_API_URL || 'https://script.google.com/macros/s/AKfycbyFwqwleAfwHoVSfWHyFVnszvc0fCjsG-WcEVkxRqUz_FmmL4bL-RymfPc3Eh_aNcrRpQ/exec' }}
+    steps:
+      - name: 수집 원자료만 받기 (매매·전월세)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/raw/
+            data/rent/
+            data/sgg_codes.json
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+      - name: 공개 데이터 일부 받기 (분양 공고·정책 목록)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" pub
+          cd pub && git sparse-checkout set --no-cone /data/policy.json /data/bunyang/notices.json /data/index.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 키트 글 만들기 (+ 규칙 검사)
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+          BRIEF_LEDGER_DIR: ${{ github.workspace }}/engine/data/brief
+        run: |
+          pip install -q requests
+          python engine/scripts/youtube_kit.py build --site pub/data --out /tmp/ytkit --raw data/raw --rent data/rent --codes data/sgg_codes.json --ledger engine/data/brief
+      - name: B-roll 그림 (1920×1080 · 쇼츠 1080×1920 · 커뮤니티 1080×1080 · 썸네일 배경 1280×720)
+        timeout-minutes: 15
+        run: |
+          sudo apt-get install -y -q fonts-noto-cjk > /dev/null
+          pip install -q playwright && python -m playwright install --with-deps chromium > /dev/null
+          python engine/scripts/youtube_kit.py render --out /tmp/ytkit
+          python engine/scripts/youtube_kit.py pubdir --out /tmp/ytkit > /tmp/yt_tok
+      - name: 그림을 공개 저장소 난수 폴더에 올리기 (data/yt/ — 이번 주 것만)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          TOK=$(cat /tmp/yt_tok); [[ "$TOK" =~ ^[0-9a-f]{32}$ ]] || { echo "폴더 이름 오류"; exit 1; }
+          for i in 1 2 3 4; do
+            rm -rf /tmp/pub2
+            git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2
+            cd /tmp/pub2 && git sparse-checkout set --no-cone /data/yt/
+            rm -rf data/yt && mkdir -p "data/yt/$TOK" && cp /tmp/ytkit/img/*.png "data/yt/$TOK/"
+            git add -A data/yt
+            git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "유튜브 키트 그림 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
+            git push -q && { echo "그림 올림"; exit 0; }
+            cd - > /dev/null; sleep 20
+          done
+          echo "그림을 올리지 못함"; exit 1
+      - name: 키트 글을 비공개 엔진에 남기기 (data/youtube_kit/{주차}/)
+        if: always()
+        run: |
+          [ -f /tmp/ytkit/kit.json ] || exit 0
+          W=$(python -c "import json;print(json.load(open('/tmp/ytkit/kit.json'))['week'])")
+          cd engine && mkdir -p "data/youtube_kit/$W" && cp /tmp/ytkit/*.txt /tmp/ytkit/kit.json "data/youtube_kit/$W/"
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add "data/youtube_kit/$W"
+          git diff --cached --quiet || git commit -qm "장대장TV 유튜브 키트 $W"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true
+      - name: 서버로 보내기 (월요일 오전 6시대 대표 메일)
+        env:
+          BRIEF_PULL_TOKEN: ${{ secrets.BRIEF_PULL_TOKEN }}
+        run: |
+          [ -n "$BRIEF_PULL_TOKEN" ] || { echo "BRIEF_PULL_TOKEN 없음 → 보내지 않음"; exit 1; }
+          python - <<'PY'
+          import json, os
+          k = json.load(open('/tmp/ytkit/kit.json', encoding='utf-8'))
+          keep = ('week', 'made', 'monday', 'link', 'candidates', 'top', 'script', 'script_chars', 'shorts', 'titles', 'thumbs', 'description',
+                  'description_ads', 'pinned', 'community', 'ads', 'img')
+          body = {'action': 'ytKitPut', 'k': os.environ['BRIEF_PULL_TOKEN'], 'kit': {x: k.get(x) for x in keep}}
+          json.dump(body, open('/tmp/yt_post.json', 'w', encoding='utf-8'), ensure_ascii=False)
+          PY
+          R=$(curl -sfL -H 'Content-Type: application/json' --data-binary @/tmp/yt_post.json "$BRIEF_API") || R='{}'
+          rm -f /tmp/yt_post.json
+          echo "$R" | python -c "import json,sys;j=json.load(sys.stdin);print('서버 응답', {k:j.get(k) for k in ('ok','week','err')});sys.exit(0 if j.get('ok') else 1)"
