@@ -1,0 +1,50 @@
+name: 학군·생활 정보 원자료 (매월 + 수동)
+# 초등학교 통학구역(학구도)·학원·교습소·병원·도시공원 공공 파일을 받아 '필요한 칸만' 비공개 엔진 저장소 data/private/life/ 에 저장.
+# 공개 단지별 숫자(site/data/life/)는 정기 갱신(update.yml)의 '학군·생활 정보' 단계가 만든다. 이용 조건·상태: 엔진 docs/data_sources_status.md
+# 수동 실행 mode=probe 는 접속만 확인(로그만, 파일 안 씀).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'probe(접속만 확인) 또는 fetch(받기)'
+        default: 'fetch'
+      only:
+        description: '받을 것(쉼표): zone,aca,hos,park'
+        default: 'zone,aca,hos,park'
+  schedule:
+    - cron: '41 19 5 * *'
+permissions:
+  contents: read
+jobs:
+  life:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+      - run: pip install -q requests pyshp pyproj openpyxl
+      - name: 학군·생활 정보 원자료
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          CALL_BUDGET: '30000'
+        run: |
+          if [ "${{ github.event.inputs.mode }}" = "probe" ]; then python scripts/life.py probe; exit 0; fi
+          python scripts/life.py fetch --only "${{ github.event.inputs.only || 'zone,aca,hos,park' }}" 2>&1 | tee /tmp/life.log
+      - name: 엔진 데이터 저장 (비공개 저장소)
+        if: always() && github.event.inputs.mode != 'probe'
+        run: |
+          [ -d engine/data/private/life ] || exit 0
+          mkdir -p engine/logs && cp /tmp/life.log engine/logs/ 2>/dev/null || true
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/private/life logs/life.log 2>/dev/null || true
+          git diff --cached --quiet || git commit -qm "학군·생활 정보 원자료 $(date -u +%F)"
+          git pull -q --rebase -X theirs || true
+          git push -q || true
