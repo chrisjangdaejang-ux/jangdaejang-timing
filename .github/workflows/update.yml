@@ -140,7 +140,7 @@ jobs:
           python scripts/kosis_demo.py || echo "인구 구조(연령별·인구이동·세대원수) 수집 건너뜀"      # 로그 [kosis-demo]: 쓴 표 ID·수록기간·보유 기간
           python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1 || true
 
-      - name: 시장·상권 통계 (부동산원 매입자 거주지·연령대·아파트 가격지수, 주택 인허가·착공·준공, 시군구 근로소득, 서울 상권·상가정보)
+      - name: 시장 통계 (부동산원 매입자 거주지·연령대·아파트 가격지수, 주택 인허가·착공·준공, 시군구 근로소득)
         timeout-minutes: 30
         continue-on-error: true
         env:
@@ -149,10 +149,28 @@ jobs:
           RONE_IDX_CALLS: '80'                          # 부동산원 가격지수(지도 '지역 분석') 한 번 실행 호출 상한 — 나머지는 다음 실행에서 이어 받음
           SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          RONE_MAX_MIN: '20'                            # R-ONE 응답이 느려도 이 시간 안에 받은 데까지 저장하고 끝(단계 제한 30분)
         run: |
           python scripts/kosis_market.py || echo "주택건설실적·근로소득 수집 건너뜀"     # 로그 [kosis-mkt]: 쓴 표 ID·수록기간·시군구 수
           python scripts/rone.py || echo "부동산원 매입자 거주지·연령대 수집 건너뜀"      # 로그 [rone]
-          python scripts/sangkwon.py || echo "상권 통계 수집 건너뜀"                       # 로그 [sangkwon]
+
+      - name: 상권 통계 (서울 상권 매출·점포, 소상공인 상가(상권)정보 — 상가·건물 탭)
+        # 예전엔 위 단계 안에서 R-ONE 이 늦으면 30분 제한에 걸려 실행되지 못했음 → 따로 뗌. 상가정보는 시군구 단위로 이어받음
+        timeout-minutes: 40
+        continue-on-error: true
+        env:
+          SEOUL_KEY: ${{ secrets.SEOUL_KEY }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          SEMAS_MAX_MIN: '25'
+        run: python scripts/sangkwon.py || echo "상권 통계 수집 건너뜀"                    # 로그 [sangkwon]
+
+      - name: 부동산원 상업용부동산 임대동향 (지역 임대료·공실률·수익률 — 상가·건물 탭)
+        timeout-minutes: 15
+        continue-on-error: true
+        env:
+          REB_KEY: ${{ secrets.REB_KEY }}
+          RONE_MAX_MIN: '12'
+        run: python scripts/rone.py comm || echo "부동산원 임대동향 수집 건너뜀"            # 로그 [rone-comm]
 
       - name: 지하철 역 위치(서울시 역사마스터 정보, 공공) + 역별 승하차 (서울 열린데이터)
         # 역 위치 표를 매일 다시 받음 → 새로 개통한 역이 들어오면 다음 '좌표' 단계에서 신설역이 공공 좌표로 자동 전환('개통 예정' 표시 빠짐)
@@ -290,7 +308,7 @@ jobs:
         if: always()
         run: |
           [ -d engine ] || exit 0
-          for f in rail.json supply.json station_xy.json seoul_station_master.json supply_xy.json model.json model5.json model_region.json model_offi.json rebuild_zones.json bunyang_xy.json zone_poly.json villa_xy.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
+          for f in rail.json supply.json station_xy.json seoul_station_master.json supply_xy.json model.json model5.json model_region.json model_offi.json model_comm.json rebuild_zones.json bunyang_xy.json zone_poly.json villa_xy.json; do [ -f data/$f ] && cp data/$f engine/data/ || true; done
           mkdir -p engine/logs && cp /tmp/*.log engine/logs/ 2>/dev/null || true
           cd engine
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"

@@ -13,6 +13,7 @@ data/model.json
 data/model5.json
 data/model_region.json
 data/model_offi.json
+data/model_comm.json
 data/rebuild_zones.json
 # 엔진에서 복사해 오는 비공개 자료(정책·개발사업 DB·후보·사건 연구·정비 보정·주소 좌표) — 2026-11-21부터 공개 저장소에 올리지 않음
 data/devproj.json

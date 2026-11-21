@@ -27,7 +27,7 @@ jobs:
       - name: 공개 데이터 받기 (시세·자료 기간·좌표·청약 공고만)
         run: |
           git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages https://github.com/chrisjangdaejang-ux/jangdaejang-data.git pub
-          cd pub && git sparse-checkout set --no-cone '/data/index.json' '/data/s*_xy.json' '/data/price/[0-9]*.json' '/data/chungyak/notices.json'
+          cd pub && git sparse-checkout set --no-cone '/data/index.json' '/data/s*_xy.json' '/data/price/[0-9]*.json' '/data/chungyak/notices.json' '/data/comm/*.json'
           ls data/price | wc -l
       - name: 웹 저장소 받기
         env:
@@ -41,7 +41,7 @@ jobs:
       - name: 웹 저장소에 올리기
         run: |
           cd calc
-          git add -A apt cy sitemaps sitemap.xml robots.txt index.html manifest.webmanifest
+          git add -A apt cy comm sitemaps sitemap.xml robots.txt index.html manifest.webmanifest
           git add -u                                   # 주소를 바꾼 날(SITE_URL 변경) 고친 화면들
           if git diff --cached --quiet; then echo "바뀐 페이지 없음"; exit 0; fi
           git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "검색용 페이지·사이트맵 $(date -u +%F)"
