@@ -4,14 +4,14 @@ name: 주간 실거래 동향 (매주 월요일 새벽)
 #  · 확정 안 된 최근 6주는 매주 다시 계산해 새 판(제2판·제3판 …)을 낸다. 주 끝 + 35일 자료면 확정. 판은 비공개 엔진 data/weekly/ 에 고치지 않고 쌓는다.
 #  · 한국부동산원 주간 아파트 매매가격지수(R-ONE, REB_KEY)는 참고 칸 — 실패해도 계산은 그대로(그 칸만 비움).
 #  · 결과: 공개 저장소 jangdaejang-data gh-pages 의 data/weekly/ (index·latest·주별 최신 판·판마다 JSON·CSV). 모닝 브리핑(brief.yml 05:07)이 latest.json 을 읽어 '지난주 우리 지역은?' 칸을 싣는다.
-#  · mode=probe: 부동산원 주간 표 찾기만 시험(공개·저장 없음).
+#  · mode=probe: 부동산원 주간 표 찾기만 시험(공개·저장 없음). mode=compare: 공식 지수와 나란히 본 기록만 다시 계산(서비스 전 주는 원자료로 소급) → 보관·공개.
 on:
   schedule:
-    - cron: '13 17 * * 0'     # 한국 시각 월요일 02:13 (브리핑 05:07 전에 끝나게)
+    - cron: '43 18 * * 0'     # 한국 시각 월요일 03:43 계산 → 발표는 월요일 오전 7시(화면·브리핑이 판의 release 시각부터 보여 줌). 브리핑 05:07 전에 끝나게
   workflow_dispatch:
     inputs:
       mode:
-        description: 'build(계산·공개) 또는 probe(부동산원 주간 표 확인만)'
+        description: 'build(계산·공개) · compare(공식 지수와 나란히 본 기록만) · probe(부동산원 주간 표 확인만)'
         default: 'build'
 permissions:
   contents: read
@@ -33,6 +33,8 @@ jobs:
             data/raw/
             data/manifest.json
             data/sgg_codes.json
+            data/kapt.json
+            data/rone_trade.json
       - name: 엔진 불러오기 (비공개 저장소)
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
@@ -55,7 +57,7 @@ jobs:
           mkdir -p engine/data/weekly
           python engine/scripts/rone.py weekly --out "$OUT" || echo "부동산원 주간 지수 건너뜀(참고 칸만 비움)"
       - name: 최근 3개월 실거래 다시 받기 (전국)
-        if: github.event.inputs.mode != 'probe'
+        if: github.event.inputs.mode != 'probe' && github.event.inputs.mode != 'compare'
         continue-on-error: true
         timeout-minutes: 40
         env:
@@ -63,8 +65,13 @@ jobs:
           JDJ_DATA: ${{ github.workspace }}/data
           WEEKLY_CALL_BUDGET: ${{ vars.WEEKLY_CALL_BUDGET || '1000' }}
         run: python engine/scripts/weekly.py fetch --out /tmp/fresh
+      - name: 공식 지수와 나란히 본 기록만 (mode=compare)
+        if: github.event.inputs.mode == 'compare'
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+        run: python engine/scripts/weekly.py compare --site /tmp/wk | tee /tmp/weekly.log
       - name: 지난주 계산·지난 판 다시 계산 (비공개 보관 → 공개 파일)
-        if: github.event.inputs.mode != 'probe'
+        if: github.event.inputs.mode != 'probe' && github.event.inputs.mode != 'compare'
         env:
           JDJ_DATA: ${{ github.workspace }}/data
         run: |
@@ -88,7 +95,7 @@ jobs:
             rm -rf /tmp/pub2
             git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2
             cd /tmp/pub2 && git sparse-checkout set --no-cone /data/weekly/
-            rm -rf data/weekly && mkdir -p data && cp -r /tmp/wk/weekly data/weekly
+            if [ "${{ github.event.inputs.mode }}" = "compare" ]; then mkdir -p data/weekly && cp /tmp/wk/weekly/compare.* data/weekly/; else rm -rf data/weekly && mkdir -p data && cp -r /tmp/wk/weekly data/weekly; fi
             git add -A data/weekly
             git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "주간 실거래 동향 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
             git push -q && { echo "공개 저장소로 내보냄"; exit 0; }
