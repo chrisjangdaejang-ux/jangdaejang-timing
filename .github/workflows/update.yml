@@ -311,6 +311,16 @@ jobs:
             && (cd /tmp/bprev && git sparse-checkout set --no-cone /data/brief/) && [ -d /tmp/bprev/data/brief ] \
             && rm -rf site/data/brief && cp -r /tmp/bprev/data/brief site/data/brief && echo "모닝 브리핑 최신본 유지" || echo "모닝 브리핑 없음"
 
+      - name: 주간 실거래 동향 최신본 다시 받기 (이 실행 중에 weekly.yml 이 올린 data/weekly 를 덮어쓰지 않게)
+        continue-on-error: true
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          [ -n "$PUBLISH_TOKEN" ] || exit 0
+          rm -rf /tmp/wprev && git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/wprev \
+            && (cd /tmp/wprev && git sparse-checkout set --no-cone /data/weekly/) && [ -d /tmp/wprev/data/weekly ] \
+            && rm -rf site/data/weekly && cp -r /tmp/wprev/data/weekly site/data/weekly && echo "주간 실거래 동향 최신본 유지" || echo "주간 실거래 동향 없음"
+
       - name: 공개 사이트로 내보내기 (결과 파일만, jangdaejang-data 저장소)
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
