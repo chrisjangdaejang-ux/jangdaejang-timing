@@ -3,7 +3,8 @@ name: 주간 실거래 동향 (매주 월요일 새벽)
 #  · 계산 직전에 전국 시군구의 최근 3개월을 다시 받는다(weekly.py fetch, 원자료 저장소는 건드리지 않음 — 받은 날을 지역마다 기록).
 #  · 확정 안 된 최근 6주는 매주 다시 계산해 새 판(제2판·제3판 …)을 낸다. 주 끝 + 35일 자료면 확정. 판은 비공개 엔진 data/weekly/ 에 고치지 않고 쌓는다.
 #  · 한국부동산원 주간 아파트 매매가격지수(R-ONE, REB_KEY)는 참고 칸 — 실패해도 계산은 그대로(그 칸만 비움).
-#  · 결과: 공개 저장소 jangdaejang-data gh-pages 의 data/weekly/ (index·latest·주별 최신 판·판마다 JSON·CSV). 모닝 브리핑(brief.yml 05:07)이 latest.json 을 읽어 '지난주 우리 지역은?' 칸을 싣는다.
+#  · 결과는 비공개 엔진 data/weekly 에만 두고, 공개(jangdaejang-data data/weekly/)는 발표 시각 월요일 오전 7시에 weekly_release.yml 이 한다(7시 전 숫자 노출 없음).
+#    모닝 브리핑(brief.yml 05:07)은 엔진 data/weekly/latest_next.json 으로 '지난주 우리 지역은?' 칸을 미리 만들어 엔진에 두고, 그 칸도 7시에 공개된다.
 #  · mode=probe: 부동산원 주간 표 찾기만 시험(공개·저장 없음). mode=compare: 공식 지수와 나란히 본 기록만 다시 계산(서비스 전 주는 원자료로 소급) → 보관·공개.
 on:
   schedule:
@@ -86,19 +87,27 @@ jobs:
           git add data/weekly logs/weekly.log
           git diff --cached --quiet || git commit -qm "주간 실거래 동향 $(date -u +%F)"
           for i in 1 2 3 4; do git pull -q --rebase -X theirs && git push -q && break; sleep 10; done
-      - name: 공개 저장소에 올리기 (data/weekly 만, 다른 갱신과 겹치면 다시 시도)
-        if: github.event.inputs.mode != 'probe'
+      - name: 공식 지수 기록 바로 공개 (mode=compare — 숫자가 새 판이 아닌 비교 기록이라 바로)
+        if: github.event.inputs.mode == 'compare'
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
         run: |
+          ls /tmp/wk/weekly/compare.* > /dev/null 2>&1 || { echo "나란히 본 기록 없음"; exit 0; }
           for i in 1 2 3 4; do
             rm -rf /tmp/pub2
             git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2
             cd /tmp/pub2 && git sparse-checkout set --no-cone /data/weekly/
-            if [ "${{ github.event.inputs.mode }}" = "compare" ]; then ls /tmp/wk/weekly/compare.* > /dev/null 2>&1 || { echo "나란히 본 기록 없음"; exit 0; }; mkdir -p data/weekly && cp /tmp/wk/weekly/compare.* data/weekly/; else rm -rf data/weekly && mkdir -p data && cp -r /tmp/wk/weekly data/weekly; fi
-            git add -A data/weekly
-            git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "주간 실거래 동향 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
+            mkdir -p data/weekly && cp /tmp/wk/weekly/compare.* data/weekly/ && git add -A data/weekly
+            git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "공식 지수와 나란히 본 기록 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
             git push -q && { echo "공개 저장소로 내보냄"; exit 0; }
             cd - > /dev/null; sleep 20
           done
-          echo "올리지 못함 — 보관본은 저장됨, 다음 실행의 publish 가 다시 씀"; exit 1
+          exit 1
+      - name: 발표 시각이 이미 지났으면 바로 공개 (계산이 7시 넘어 끝난 날 — 보통은 weekly_release.yml 이 7시에 올림)
+        if: github.event.inputs.mode != 'probe' && github.event.inputs.mode != 'compare'
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          H=$(TZ=Asia/Seoul date +%H%M); D=$(TZ=Asia/Seoul date +%u)
+          if [ "$D" = "1" ] && [ "$H" -lt 0700 ]; then echo "발표 전(월요일 7시 전) → 7시 발표 단계가 올림"; exit 0; fi
+          bash .github/scripts/weekly_release.sh engine
