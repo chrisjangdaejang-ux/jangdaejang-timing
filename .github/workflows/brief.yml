@@ -1,6 +1,7 @@
 name: 모닝 브리핑 (매일 새벽)
 # 서비스 이름은 엔진 scripts/brand.py 한 곳(브리핑 이름 = '{서비스 이름} 모닝 브리핑').
-# ① 전국 공통 '오늘의 부동산 시장'(market.json)은 하루 1개 ② 동네(시·군·구)별로 한 번씩만 만든다(구독자 수와 상관없이 비용 같음). 결과: 공개 저장소 jangdaejang-data gh-pages 의 data/brief/
+# ① 전국 공통 '오늘의 부동산 시장'(market.json)은 하루 1개 ② 동네(시·군·구)별로 한 번씩만 만든다(구독자 수와 상관없이 비용 같음).
+# ③ 중개사 플러스 손님 단지(cx/{시군구}.json)는 모든 손님을 합쳐 단지마다 한 번, 주간 시장 리포트 PDF 는 월요일에만(서버로 올림). 결과: 공개 저장소 jangdaejang-data gh-pages 의 data/brief/
 #  · 새로 올라온 거래 = 국토부 공개 자료에 이번 확인에서 처음 보인 거래(비공개 엔진 data/brief/seen.json.gz 와 비교). 확인 기간을 결과에 함께 싣는다.
 #  · 구독 동네는 이번 달·지난달을 이 단계에서 한 번 더 받아(BRIEF_CALL_BUDGET, 기본 300회/종류) '어제 올라온 것'을 매일 잡는다.
 #  · 새로 발표된 정책·교통·공급 소식: 정부·지자체 공식 보도자료 목록(제목·날짜·부처·링크만)에서 부동산 관련만 골라 ①과 그 동네 ②에 싣는다(엔진 scripts/policy_news.py).
@@ -58,6 +59,8 @@ jobs:
           [ -n "$BRIEF_PULL_TOKEN" ] || { echo "BRIEF_PULL_TOKEN 없음 → 기본 동네만"; exit 0; }
           curl -sfL "$BRIEF_API?action=briefAreas&k=$BRIEF_PULL_TOKEN" -o /tmp/brief_areas.json && python -c "import json;j=json.load(open('/tmp/brief_areas.json'));print('구독 동네', len(j.get('areas') or []), '곳') if j.get('ok') else exit(1)" || rm -f /tmp/brief_areas.json
           curl -sfL "$BRIEF_API?action=briefInterest&k=$BRIEF_PULL_TOKEN" -o /tmp/brief_interest.json && python -c "import json;j=json.load(open('/tmp/brief_interest.json'));exit(0 if j.get('ok') else 1)" || rm -f /tmp/brief_interest.json
+          # 중개사 플러스: 손님 단지(모든 손님을 합쳐 단지마다 한 번, 이름표 없음) + 주간 리포트 중개사 목록. 로그에는 개수만.
+          curl -sfL "$BRIEF_API?action=bpPull&k=$BRIEF_PULL_TOKEN" -o /tmp/plus.json && python -c "import json;j=json.load(open('/tmp/plus.json'));print('손님 단지', len(j.get('cx') or []), '곳') if j.get('ok') else exit(1)" || rm -f /tmp/plus.json
       - name: 구독 동네 최신 두 달 다시 받기 (매일 '어제 올라온 거래'용)
         continue-on-error: true
         timeout-minutes: 15
@@ -84,7 +87,8 @@ jobs:
           A=""; [ -f /tmp/brief_areas.json ] && A="--areas /tmp/brief_areas.json"
           I=""; [ -f /tmp/brief_interest.json ] && I="--interest /tmp/brief_interest.json"
           F=""; [ -d /tmp/fresh ] && F="--fresh /tmp/fresh"
-          python engine/scripts/brief.py build --site pub/data $A $I $F | tee -a /tmp/brief.log
+          X=""; [ -f /tmp/plus.json ] && X="--plus /tmp/plus.json"      # 손님 단지 자료 data/brief/cx/{시군구}.json
+          python engine/scripts/brief.py build --site pub/data $A $I $F $X | tee -a /tmp/brief.log
       - name: 카드 이미지 (전국 시장 1장 + 구독 동네)
         continue-on-error: true
         timeout-minutes: 20
@@ -97,6 +101,19 @@ jobs:
         if: always()
         continue-on-error: true
         run: python engine/scripts/watch_status.py summary policy_news
+      - name: 중개사 플러스 주간 시장 리포트 (월요일만 — PDF 를 서버로 올림, 공개 저장소에는 올리지 않음)
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+          BRIEF_LEDGER_DIR: ${{ github.workspace }}/engine/data/brief
+          BRIEF_PULL_TOKEN: ${{ secrets.BRIEF_PULL_TOKEN }}
+        run: |
+          [ -f /tmp/plus.json ] || { echo "중개사 플러스 목록 없음 → 건너뜀"; exit 0; }
+          python engine/scripts/client_brief.py weekly --site pub/data --plus /tmp/plus.json --out /tmp/weekly | tee -a /tmp/brief.log
+          ls /tmp/weekly/*.pdf > /dev/null 2>&1 || exit 0
+          pip install -q requests
+          python engine/scripts/client_brief.py put --dir /tmp/weekly --api "$BRIEF_API" | tee -a /tmp/brief.log
       - name: 이미 본 거래 목록 저장 (비공개 엔진)
         if: always()
         run: |
