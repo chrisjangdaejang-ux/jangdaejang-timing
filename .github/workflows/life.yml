@@ -33,7 +33,8 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
-          CALL_BUDGET: '30000'
+          NEIS_KEY: ${{ secrets.NEIS_KEY }}             # 나이스 교육정보 개방 포털 인증키(학원·교습소, 없으면 학원만 건너뜀)
+          CALL_BUDGET: '30000'                          # 학원 주소 → 위치(카카오) 한 번 실행 호출 상한, 나머지는 다음 실행에서 이어서
         run: |
           if [ "${{ github.event.inputs.mode }}" = "probe" ]; then python scripts/life.py probe; exit 0; fi
           python scripts/life.py fetch --only "${{ github.event.inputs.only || 'zone,aca,hos,park' }}" 2>&1 | tee /tmp/life.log
