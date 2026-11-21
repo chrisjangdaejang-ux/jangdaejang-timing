@@ -1,0 +1,11 @@
+{
+ "about": "정기 실행 기록(감시 watchdog.yml 이 매일 05~09시 KST 에 씀). status: succeeded=원래 정기 실행 성공, recovered=예비 정기 실행·감시(watchdog)·수동(manual) 실행이 채움, dispatched=감시가 다시 실행 요청함, missing=끝까지 없음. on_time=false 이면 원래 정기 실행이 제때(첫 예비 시각 전) 안 들어온 날(빠짐 또는 늦음). skipped=이미 끝나 건너뛴 예비 실행 수.",
+ "days": {
+  "2026-11-22": {
+   "brief": {"primary":"05:07","runs":{"schedule":0,"dispatch":1,"failed":0,"cancelled":0},"on_time":false,"status":"recovered","by":"manual","at":"08:09","run":44960368726,"skipped":0,"output":{"date":"2026-11-22","ok":true}},
+   "seo": {"primary":"07:37","runs":{"schedule":0,"dispatch":1,"failed":1,"cancelled":0},"on_time":false,"status":"dispatched","dispatched_at":"08:17"},
+   "facility": {"primary":"02:37","runs":{"schedule":1,"dispatch":0,"failed":0,"cancelled":0},"on_time":false,"status":"recovered","by":"schedule-late-or-backup","at":"07:21","run":44956364268,"skipped":0},
+   "watchdog_scheduled_runs": 0
+  }
+ }
+}
