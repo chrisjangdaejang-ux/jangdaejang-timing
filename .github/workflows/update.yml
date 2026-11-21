@@ -209,6 +209,10 @@ jobs:
         continue-on-error: true
         run: python scripts/content_kit.py poi site/data || echo "주변 위치 건너뜀(직전 공개본 유지)"
 
+      - name: 학군·생활 정보 (비공개 엔진 data/private/life 의 통학구역·병원·학원·공원 정리본 + 공개 단지 좌표 → site/data/life/, 단지별 개수·학교 이름·거리만)
+        continue-on-error: true
+        run: python scripts/life.py build site/data || echo "학군·생활 정보 건너뜀(직전 공개본 유지)"
+
       - name: 지도 '지역 분석' 구별 요약 (공개 시세 + 청약홈 입주예정·정비사업·부동산원 지표 → site/data/region/)
         continue-on-error: true
         run: python scripts/region_pulse.py site/data || echo "지역 분석 요약 건너뜀(직전 공개본 유지)"
