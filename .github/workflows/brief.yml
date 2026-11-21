@@ -5,7 +5,7 @@ name: 모닝 브리핑 (매일 새벽)
 #  · 새로 올라온 거래 = 국토부 공개 자료에 이번 확인에서 처음 보인 거래(비공개 엔진 data/brief/seen.json.gz 와 비교). 확인 기간을 결과에 함께 싣는다.
 #  · 구독 동네는 이번 달·지난달을 이 단계에서 한 번 더 받아(BRIEF_CALL_BUDGET, 기본 300회/종류) '어제 올라온 것'을 매일 잡는다.
 #  · 새로 발표된 정책·교통·공급 소식: 정부·지자체 공식 보도자료 목록(제목·날짜·부처·링크만)에서 부동산 관련만 골라 ①과 그 동네 ②에 싣는다(엔진 scripts/policy_news.py).
-#  · 월요일 새벽 주간 실거래 동향(weekly.yml) 계산 뒤 첫 브리핑에 '지난주 우리 지역은?' 칸(공개 data/weekly/latest.json, 엔진 brief.weekly_pick).
+#  · 월요일 새벽 주간 실거래 동향(weekly.yml) 계산 뒤 첫 브리핑에 '지난주 우리 지역은?' 칸 — 비공개 엔진 latest_next.json 으로 만들어 엔진 data/weekly/brief_wk 에 두고, 월요일 오전 7시 weekly_release.yml 이 data/brief/wk/ 로 공개.
 #  · 각 단계가 실패해도 다른 단계·정기 수집(update.yml)에는 영향 없음. 발송은 Apps Script(briefDaily, 오전 7시대)가 이 결과를 읽어서 함.
 on:
   workflow_dispatch:
@@ -47,7 +47,7 @@ jobs:
         run: |
           git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" pub
           cd pub && git sparse-checkout set --no-cone /data/policy.json /data/index.json /data/bunyang/notices.json /data/brief/ \
-            /data/evidence.json '/data/s[0-9][0-9].json' /data/chungyak/notices.json /data/chungyak/price.json /data/track.json /data/weekly/latest.json
+            /data/evidence.json '/data/s[0-9][0-9].json' /data/chungyak/notices.json /data/chungyak/price.json /data/track.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -89,7 +89,10 @@ jobs:
           I=""; [ -f /tmp/brief_interest.json ] && I="--interest /tmp/brief_interest.json"
           F=""; [ -d /tmp/fresh ] && F="--fresh /tmp/fresh"
           X=""; [ -f /tmp/plus.json ] && X="--plus /tmp/plus.json"      # 손님 단지 자료 data/brief/cx/{시군구}.json
-          python engine/scripts/brief.py build --site pub/data $A $I $F $X | tee -a /tmp/brief.log
+          # 지난주 우리 지역은?: 발표 전 주간 자료(비공개 엔진 latest_next.json)로 미리 만들고, 칸은 엔진 data/weekly/brief_wk 에만 둠 → 월요일 7시 weekly_release.yml 이 공개
+          rm -rf engine/data/weekly/brief_wk; mkdir -p pub/data/weekly engine/data/weekly/brief_wk && touch engine/data/weekly/brief_wk/.keep
+          [ -f engine/data/weekly/latest_next.json ] && cp engine/data/weekly/latest_next.json pub/data/weekly/latest.json
+          python engine/scripts/brief.py build --site pub/data --wk-out engine/data/weekly/brief_wk $A $I $F $X | tee -a /tmp/brief.log
       - name: 중개사 주간 블로그·인스타 글 재료 (동네마다 주 1번 — 같은 주는 건너뜀, 결과 data/brief/kit/)
         continue-on-error: true
         env:
@@ -129,7 +132,7 @@ jobs:
           cd engine
           mkdir -p logs && cp /tmp/brief.log logs/ 2>/dev/null || true
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
-          git add data/brief data/watch/policy_news.json logs/brief.log 2>/dev/null || true
+          git add -A data/brief data/watch/policy_news.json data/weekly/brief_wk logs/brief.log 2>/dev/null || true
           git diff --cached --quiet || git commit -qm "모닝 브리핑 $(date -u +%F)"
           for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true
       - name: 공개 저장소에 올리기 (data/brief 만, 정기 갱신과 겹치면 다시 시도)
@@ -141,6 +144,7 @@ jobs:
             rm -rf /tmp/pub2
             git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2
             cd /tmp/pub2 && git sparse-checkout set --no-cone /data/brief/
+            [ -d data/brief/wk ] && rm -rf /tmp/brief_out/wk && cp -r data/brief/wk /tmp/brief_out/wk    # 7시 발표 단계가 올린 주간 칸은 그대로
             rm -rf data/brief && mkdir -p data && cp -r /tmp/brief_out data/brief
             git add -A data/brief
             git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "모닝 브리핑 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
