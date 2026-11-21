@@ -1,0 +1,49 @@
+name: 단지 시설 원자료 (K-apt 상세, 매일 + 수동)
+# 국토교통부 공동주택관리정보시스템(K-apt) 상세정보(부대·복리시설 글·주차·CCTV·승강기·충전기)를 받아
+# '필요한 칸만' 비공개 엔진 저장소 data/private/facility/ 에 저장. 공개 단지별 칸(site/data/fac/)은 정기 갱신(update.yml)의 '단지 시설' 단계가 만든다.
+# 이용 조건·상태: 엔진 docs/data_sources_status.md '단지 시설'. 수동 실행 mode=probe 는 접속·응답 칸만 확인(로그만, 파일 안 씀).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'probe(접속만 확인) 또는 fetch(받기)'
+        default: 'fetch'
+      budget:
+        description: '한 번 실행 호출 상한(개발계정 하루 5,000회 — 정기 단지 정보 수집과 나눠 씀)'
+        default: '2000'
+  schedule:
+    - cron: '37 17 * * *'
+permissions:
+  contents: read
+jobs:
+  facility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+      - run: pip install -q requests
+      - name: 단지 시설 원자료
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          FAC_BUDGET: ${{ github.event.inputs.budget || '2000' }}
+          PYTHONUNBUFFERED: '1'
+        run: |
+          if [ "${{ github.event.inputs.mode }}" = "probe" ]; then python scripts/facility.py probe; exit 0; fi
+          python -u scripts/facility.py fetch 2>&1 | tee /tmp/facility.log
+      - name: 엔진 데이터 저장 (비공개 저장소)
+        if: always() && github.event.inputs.mode != 'probe'
+        run: |
+          [ -d engine/data/private/facility ] || exit 0
+          mkdir -p engine/logs && cp /tmp/facility.log engine/logs/ 2>/dev/null || true
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/private/facility logs/facility.log 2>/dev/null || true
+          git diff --cached --quiet || git commit -qm "단지 시설 원자료 $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true
