@@ -3,6 +3,7 @@ name: 모닝 브리핑 (매일 새벽)
 # ① 전국 공통 '오늘의 부동산 시장'(market.json)은 하루 1개 ② 동네(시·군·구)별로 한 번씩만 만든다(구독자 수와 상관없이 비용 같음). 결과: 공개 저장소 jangdaejang-data gh-pages 의 data/brief/
 #  · 새로 올라온 거래 = 국토부 공개 자료에 이번 확인에서 처음 보인 거래(비공개 엔진 data/brief/seen.json.gz 와 비교). 확인 기간을 결과에 함께 싣는다.
 #  · 구독 동네는 이번 달·지난달을 이 단계에서 한 번 더 받아(BRIEF_CALL_BUDGET, 기본 300회/종류) '어제 올라온 것'을 매일 잡는다.
+#  · 새로 발표된 정책·교통·공급 소식: 정부·지자체 공식 보도자료 목록(제목·날짜·부처·링크만)에서 부동산 관련만 골라 ①과 그 동네 ②에 싣는다(엔진 scripts/policy_news.py).
 #  · 각 단계가 실패해도 다른 단계·정기 수집(update.yml)에는 영향 없음. 발송은 Apps Script(briefDaily, 오전 7시대)가 이 결과를 읽어서 함.
 on:
   workflow_dispatch:
@@ -67,6 +68,14 @@ jobs:
         run: |
           [ -f /tmp/brief_areas.json ] || { echo "구독 동네 없음 → 건너뜀(정기 수집 자료로 만듦)"; exit 0; }
           python engine/scripts/brief.py fetch --out /tmp/fresh --areas /tmp/brief_areas.json
+      - name: 새 정책·교통·공급 발표 모으기 (공식 보도자료 목록 — 국토부·정책브리핑 부처·금융위·서울시·인천시)
+        # 실패해도 브리핑은 그대로 만듦(새 발표 칸만 빠짐). 결과: 비공개 엔진 data/brief/policy_news.json(여러 날 중복 제거용, 아래 저장 단계가 커밋)
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+          BRIEF_LEDGER_DIR: ${{ github.workspace }}/engine/data/brief
+        run: python engine/scripts/policy_news.py collect | tee /tmp/brief.log
       - name: 전국 시장 + 동네별 브리핑 만들기
         env:
           JDJ_DATA: ${{ github.workspace }}/data
@@ -75,7 +84,7 @@ jobs:
           A=""; [ -f /tmp/brief_areas.json ] && A="--areas /tmp/brief_areas.json"
           I=""; [ -f /tmp/brief_interest.json ] && I="--interest /tmp/brief_interest.json"
           F=""; [ -d /tmp/fresh ] && F="--fresh /tmp/fresh"
-          python engine/scripts/brief.py build --site pub/data $A $I $F | tee /tmp/brief.log
+          python engine/scripts/brief.py build --site pub/data $A $I $F | tee -a /tmp/brief.log
       - name: 카드 이미지 (전국 시장 1장 + 구독 동네)
         continue-on-error: true
         timeout-minutes: 20
