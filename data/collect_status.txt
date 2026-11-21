@@ -1,10 +1,10 @@
 2026-11-21 trade done=4457 left=5961 calls=4500 from=200801 target=200601 missing=5961 eta=2026-11-22
 2026-11-21 rent done=4416 left=14099 calls=4500 from=201509 target=201101 missing=14099 eta=2026-11-23
-2026-11-21 villa done=2399 left=27574 calls=2400 from=201909 target=201001 missing=27574 eta=2026-11-24
-2026-11-21 rh_rent done=2389 left=38942 calls=2400 from=202310 target=201101 missing=38942 eta=2026-11-26
-2026-11-21 sh_rent done=2379 left=39021 calls=2400 from=202310 target=201101 missing=39021 eta=2026-11-26
-2026-11-21 offi_rent done=2393 left=38940 calls=2400 from=202310 target=201101 missing=38940 eta=2026-11-26
-2026-11-21 offi_trade done=2400 left=38901 calls=2400 from=202309 target=201101 missing=38901 eta=2026-11-26
-2026-11-21 nrg_trade done=2400 left=41696 calls=2400 from=202408 target=201101 missing=41696 eta=2026-11-26
-2026-11-21 land_trade done=0 left=None calls=1
-2026-11-21 sh_trade done=2400 left=41696 calls=2400 from=202408 target=201101 missing=41696 eta=2026-11-26
+2026-11-21 villa done=2400 left=25174 calls=2400 from=201804 target=201001 missing=25174 eta=2026-11-24
+2026-11-22 rh_rent done=2389 left=36553 calls=2400 from=202212 target=201101 missing=36553 eta=2026-11-26
+2026-11-22 sh_rent done=2373 left=36648 calls=2400 from=202301 target=201101 missing=36648 eta=2026-11-26
+2026-11-22 offi_rent done=2396 left=36544 calls=2400 from=202212 target=201101 missing=36544 eta=2026-11-26
+2026-11-22 offi_trade done=2399 left=36502 calls=2400 from=202212 target=201101 missing=36502 eta=2026-11-26
+2026-11-22 nrg_trade done=2399 left=39297 calls=2400 from=202311 target=201101 missing=39297 eta=2026-11-27
+2026-11-22 land_trade done=978 left=61280 calls=980 from=202601 target=200601 missing=61280 eta=2027-02-10
+2026-11-22 sh_trade done=2399 left=39297 calls=2400 from=202311 target=201101 missing=39297 eta=2026-11-27
