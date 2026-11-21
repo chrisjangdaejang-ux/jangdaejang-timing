@@ -95,7 +95,7 @@ jobs:
             rm -rf /tmp/pub2
             git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2
             cd /tmp/pub2 && git sparse-checkout set --no-cone /data/weekly/
-            if [ "${{ github.event.inputs.mode }}" = "compare" ]; then mkdir -p data/weekly && cp /tmp/wk/weekly/compare.* data/weekly/; else rm -rf data/weekly && mkdir -p data && cp -r /tmp/wk/weekly data/weekly; fi
+            if [ "${{ github.event.inputs.mode }}" = "compare" ]; then ls /tmp/wk/weekly/compare.* > /dev/null 2>&1 || { echo "나란히 본 기록 없음"; exit 0; }; mkdir -p data/weekly && cp /tmp/wk/weekly/compare.* data/weekly/; else rm -rf data/weekly && mkdir -p data && cp -r /tmp/wk/weekly data/weekly; fi
             git add -A data/weekly
             git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "주간 실거래 동향 $(date -u +%F)" || { echo "바뀐 것 없음"; exit 0; }
             git push -q && { echo "공개 저장소로 내보냄"; exit 0; }
