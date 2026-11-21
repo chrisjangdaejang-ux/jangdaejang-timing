@@ -89,6 +89,14 @@ jobs:
           F=""; [ -d /tmp/fresh ] && F="--fresh /tmp/fresh"
           X=""; [ -f /tmp/plus.json ] && X="--plus /tmp/plus.json"      # 손님 단지 자료 data/brief/cx/{시군구}.json
           python engine/scripts/brief.py build --site pub/data $A $I $F $X | tee -a /tmp/brief.log
+      - name: 중개사 주간 블로그·인스타 글 재료 (동네마다 주 1번 — 같은 주는 건너뜀, 결과 data/brief/kit/)
+        continue-on-error: true
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+          BRIEF_LEDGER_DIR: ${{ github.workspace }}/engine/data/brief
+        run: |
+          A=""; [ -f /tmp/brief_areas.json ] && A="--areas /tmp/brief_areas.json"
+          python engine/scripts/content_kit.py build --site pub/data $A | tee -a /tmp/brief.log
       - name: 카드 이미지 (전국 시장 1장 + 구독 동네)
         continue-on-error: true
         timeout-minutes: 20
