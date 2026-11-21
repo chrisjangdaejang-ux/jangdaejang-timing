@@ -1,0 +1,64 @@
+name: 주간 현장 보고서 (매주 월요일)
+# 시행사·분양대행사용 주간 현장 보고서(엔진 scripts/dev_weekly.py). 신청 현장 목록은 비공개 엔진 data/private/weekly_sites.json
+#   {"sites": [{"id": "영문·숫자", "no": "청약홈 공고번호" 또는 직접 입력 현장, "agency": {"name", "color"}, "locked": false, "active": true}]}
+# 목록이 없으면 아무것도 하지 않고 끝냄. 결과 PDF·지난주 기록은 비공개 엔진 data/private/weekly/{id}/ 에만 저장(공개 저장소에 올리지 않음).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 21 * * 0'     # 한국 시각 월요일 오전 6:43 (정기 갱신 update.yml 05시대 다음)
+permissions:
+  contents: read
+concurrency:
+  group: dev-weekly
+  cancel-in-progress: false
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: 수집 자료 일부 받기 (미분양·입주 예정·시군구 코드)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/kosis_extra.json
+            data/applyhome.json
+            data/sgg_codes.json
+            data/rone_trade.json
+            data/kosis_demo.json
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+      - name: 신청 현장 확인
+        id: chk
+        run: |
+          if [ -f engine/data/private/weekly_sites.json ]; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "신청 현장 없음 → 끝"; fi
+      - name: 공개 데이터 받기 (단지·실거래·분양·청약·정책)
+        if: steps.chk.outputs.go == '1'
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" pub
+          cd pub && git sparse-checkout set --no-cone /data/index.json '/data/s[0-9][0-9].json' '/data/s[0-9][0-9]_xy.json' /data/price/ /data/bunyang/ /data/chungyak/ /data/bt/index.json /data/policy.json
+      - uses: actions/setup-python@v5
+        if: steps.chk.outputs.go == '1'
+        with:
+          python-version: '3.12'
+      - name: 보고서 만들기
+        if: steps.chk.outputs.go == '1'
+        env:
+          JDJ_DATA: ${{ github.workspace }}/data
+        run: |
+          pip install -q requests playwright && python -m playwright install --with-deps chromium > /dev/null
+          python engine/scripts/dev_weekly.py batch engine/data/private/weekly_sites.json pub/data engine/data/private/weekly | tee /tmp/dev_weekly.log
+      - name: 비공개 엔진에 저장
+        if: steps.chk.outputs.go == '1'
+        run: |
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/private/weekly
+          git diff --cached --quiet || git commit -qm "주간 현장 보고서 $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done
