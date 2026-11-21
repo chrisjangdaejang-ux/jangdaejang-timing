@@ -1,0 +1,53 @@
+name: 검색용 페이지·사이트맵 (매일)
+# 엔진 scripts/seo_pages.py — 공개 데이터(jangdaejang-data gh-pages 의 data/price·index·좌표·청약 공고)만 읽어
+#  웹 저장소 jangdaejang-calc 에 단지·시군구·청약 공고 정적 페이지(apt/·cy/), sitemap.xml·sitemaps/, robots.txt 를 만들고 main 에 올린다.
+#  · 사이트 주소·서비스 이름·검색 등록 확인 코드는 jangdaejang-calc assets/config.js 의 SITE_URL·SITE_NAME·SITE_VERIFY_* 한 곳에서 읽는다.
+#  · 바뀐 파일만 올라간다(실행 날짜를 페이지에 넣지 않음 — 새 거래가 있는 단지만 바뀜).
+#  · jangdaejang-calc 에 올리려면 PUBLISH_TOKEN 에 jangdaejang-calc 쓰기 권한이 있어야 한다(없으면 마지막 단계에서 안내 문구만 남기고 끝남).
+on:
+  schedule:
+    - cron: '37 22 * * *'     # 한국 시각 07:37 — 새벽 수집(update.yml 18:21 UTC 시작)이 끝난 뒤
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: seo
+  cancel-in-progress: false
+jobs:
+  seo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+      - name: 공개 데이터 받기 (시세·자료 기간·좌표·청약 공고만)
+        run: |
+          git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages https://github.com/chrisjangdaejang-ux/jangdaejang-data.git pub
+          cd pub && git sparse-checkout set --no-cone '/data/index.json' '/data/s*_xy.json' '/data/price/[0-9]*.json' '/data/chungyak/notices.json'
+          ls data/price | wc -l
+      - name: 웹 저장소 받기
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-calc.git" calc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 페이지·사이트맵 만들기
+        run: python engine/scripts/seo_pages.py --data pub/data --calc calc
+      - name: 웹 저장소에 올리기
+        run: |
+          cd calc
+          git add -A apt cy sitemaps sitemap.xml robots.txt index.html manifest.webmanifest
+          git add -u                                   # 주소를 바꾼 날(SITE_URL 변경) 고친 화면들
+          if git diff --cached --quiet; then echo "바뀐 페이지 없음"; exit 0; fi
+          git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "검색용 페이지·사이트맵 $(date -u +%F)"
+          for i in 1 2 3 4 5; do
+            git pull -q --rebase -X theirs origin main && git push -q origin HEAD:main && { echo "올림"; exit 0; }
+            sleep 15
+          done
+          echo "::warning::jangdaejang-calc 에 올리지 못함 — PUBLISH_TOKEN 에 jangdaejang-calc 쓰기(Contents: Read and write) 권한이 있는지 확인"
+          exit 1
