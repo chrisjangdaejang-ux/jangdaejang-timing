@@ -1,6 +1,7 @@
-name: 개발·교통 예정 지도 — 공식 구역 경계 받기 (매주)
+name: 개발·교통 예정 지도 — 공식 구역 경계 받기 (수동)
 # 엔진 scripts/devmap.py fetch: DB에 적힌 공식 이름과 꼭 맞는 구역 경계만 브이월드(국토교통부 공간정보 오픈플랫폼)에서 받아
-# 비공개 엔진 data/devmap_bounds.json 에 저장(30일마다 새로). 공개 지도 파일(devmap.json)은 정기 갱신(update.yml)이 만든다.
+# 비공개 엔진 data/devmap_bounds.json 에 저장. 공개 지도 파일(devmap.json)은 정기 갱신(update.yml)이 만든다.
+# 2026-11-21 확인: GitHub Actions(해외 서버)에서 브이월드 데이터 API 가 HTTP 502 → 정기 실행은 꺼 두고 수동 실행만 남김.
 # 수동 실행: mode=probe 는 레이어 접속·항목만 확인하고 아무것도 저장하지 않음(layers 로 레이어 골라 확인 가능).
 on:
   workflow_dispatch:
@@ -14,8 +15,6 @@ on:
       force:
         description: 'fetch 때 30일 안이어도 다시 받기(yes)'
         default: ''
-  schedule:
-    - cron: '37 18 * * 2'     # 한국 시각 수요일 새벽 3:37
 permissions:
   contents: read
 concurrency:
