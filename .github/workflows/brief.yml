@@ -39,7 +39,7 @@ jobs:
     needs: guard
     if: needs.guard.outputs.run == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90                  # 전국 매매 다시 받기(약 10분) 추가로 60 → 90
     env:
       PYTHONUNBUFFERED: '1'
       BRIEF_API: ${{ vars.BRIEF_API_URL || 'https://script.google.com/macros/s/AKfycbyFwqwleAfwHoVSfWHyFVnszvc0fCjsG-WcEVkxRqUz_FmmL4bL-RymfPc3Eh_aNcrRpQ/exec' }}
@@ -107,6 +107,16 @@ jobs:
           print('기본 동네 다시 받기', len(want), '곳')
           PY
           python engine/scripts/brief.py fetch --out /tmp/fresh --areas /tmp/default_areas.json
+      - name: 전국 시·군·구 최신 두 달 매매 다시 받기 ('오늘의 부동산 시장' 전국 칸용, 매매만)
+        # 이 단계가 없으면 서울(기본 동네)만 매일 다시 받고 나머지 시·군·구는 정기 수집(6일마다)을 기다려,
+        # 전국 칸이 서울 숫자와 똑같이 나옴(2026-11-22 전국 620건 = 서울 620건). 위에서 이미 받은 달은 건너뜀 → 약 230곳 × 2달 ≈ 460회
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          JDJ_DATA: ${{ github.workspace }}/data
+          BRIEF_CALL_BUDGET: ${{ vars.BRIEF_NATIONAL_BUDGET || '700' }}
+        run: python engine/scripts/brief.py fetch --out /tmp/fresh --all --kinds t
       - name: 새 정책·교통·공급 발표 모으기 (공식 보도자료 목록 — 국토부·정책브리핑 부처·금융위·서울시·인천시)
         # 실패해도 브리핑은 그대로 만듦(새 발표 칸만 빠짐). 결과: 비공개 엔진 data/brief/policy_news.json(여러 날 중복 제거용, 아래 저장 단계가 커밋)
         continue-on-error: true
