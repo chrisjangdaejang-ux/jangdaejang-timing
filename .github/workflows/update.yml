@@ -232,6 +232,11 @@ jobs:
         run: |
           python scripts/build_site.py > /tmp/build.log 2>&1 && echo "사이트 데이터 생성 완료" || { echo "사이트 데이터 생성 실패 — 비공개 저장소 logs/build.log 확인"; exit 1; }
 
+      - name: 단지 이름 별칭 (실거래 이름·K-apt 공식 이름·도로명 주소·옛 이름 → 시세 목록 price/sNN.json 별칭 칸, 목록 밖 K-apt 단지 → site/data/alias/)
+        # 검색창에서 '청담 e편한세상 4차'·'청담대림' 처럼 실거래 이름과 다르게 쳐도 찾게. 실패하면 별칭 없이 그대로(검색은 이름 규칙만으로 동작)
+        continue-on-error: true
+        run: python scripts/aliases.py build site/data 2>&1 | tee -a /tmp/build.log | grep '^\[alias\]' || echo "단지 이름 별칭 건너뜀"
+
       - name: 지도 '개발·교통 예정' (공식 발표에 적힌 예정 연도·공식 정거장 순서·공식 구역 경계만 → site/data/devmap.json)
         continue-on-error: true
         run: python scripts/devmap.py build site/data > /tmp/devmap.log 2>&1 && echo "개발·교통 예정 지도 자료 완료" || echo "개발·교통 예정 지도 자료 건너뜀(직전 공개본 유지, logs/devmap.log)"
