@@ -366,6 +366,8 @@ jobs:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
         run: |
           if [ -z "$PUBLISH_TOKEN" ]; then echo "PUBLISH_TOKEN 없음 → 건너뜀"; exit 0; fi
+          # 노하우 유출 검사: 가중치·계수·영향도·기준값·기여도가 하나라도 있으면 내보내지 않음(이 단계 실패 → 아래 Pages 배포도 건너뜀)
+          python scripts/public_guard.py site/data --models data || { echo "공개 자료 검사 실패 → 내보내기 중단(직전 공개본 유지)"; exit 1; }
           rm -rf /tmp/pub && cp -r site /tmp/pub && touch /tmp/pub/.nojekyll
           cd /tmp/pub && git init -q -b gh-pages && git add -A
           git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "사이트 데이터 $(date -u +%F)"

@@ -115,6 +115,7 @@ jobs:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
         run: |
           ls /tmp/wk/weekly/compare.* > /dev/null 2>&1 || { echo "나란히 본 기록 없음"; exit 0; }
+          python engine/scripts/public_guard.py /tmp/wk/weekly --models engine/data || { echo "공개 자료 검사 실패 → 올리지 않음"; exit 1; }
           for i in 1 2 3 4; do
             rm -rf /tmp/pub2
             git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/pub2

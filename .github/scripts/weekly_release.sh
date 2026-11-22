@@ -40,6 +40,7 @@ PY
   then git reset -q && git checkout -- data/weekly/index.json; fi
   if git diff --cached --quiet; then echo "바뀐 것 없음 — 같은 판이 이미 공개돼 있음"; exit 0; fi
   git diff --cached --stat | tail -5
+  python3 "$ENGINE/scripts/public_guard.py" "$PUB/data" --models "$ENGINE/data" || { echo "공개 자료 검사 실패 → 올리지 않음"; exit 1; }
   [ -n "${DRY_RUN:-}" ] && { echo "DRY_RUN → 올리지 않음"; exit 0; }
   git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "주간 실거래 동향 발표 $(TZ=Asia/Seoul date +%F)"
   git push -q && { echo "공개 저장소로 내보냄"; exit 0; }
