@@ -125,7 +125,8 @@ jobs:
           JDJ_DATA: ${{ github.workspace }}/data
           BRIEF_LEDGER_DIR: ${{ github.workspace }}/engine/data/brief
         run: python engine/scripts/policy_news.py collect | tee /tmp/brief.log
-      - name: 전국 시장 + 동네별 브리핑 만들기
+      - name: 전국 시장 + 동네별 브리핑 만들기 (전국 모든 시·군·구)
+        timeout-minutes: 30
         env:
           JDJ_DATA: ${{ github.workspace }}/data
           BRIEF_LEDGER_DIR: ${{ github.workspace }}/engine/data/brief
@@ -134,10 +135,13 @@ jobs:
           I=""; [ -f /tmp/brief_interest.json ] && I="--interest /tmp/brief_interest.json"
           F=""; [ -d /tmp/fresh ] && F="--fresh /tmp/fresh"
           X=""; [ -f /tmp/plus.json ] && X="--plus /tmp/plus.json"      # 손님 단지 자료 data/brief/cx/{시군구}.json
+          # 전국 모든 시·군·구 동네 브리핑(약 250곳) — 구독 목록 토큰(BRIEF_PULL_TOKEN)이 없어도 어느 동네를 구독하든 구 단위 칸이 있게.
+          # 매매는 위 전국 다시 받기, 전월세는 서울·구독 동네만 매일 다시 받고 나머지는 정기 수집본. 추가 호출 없음(원자료 읽기만, 약 4~7분). 끄려면 저장소 변수 BRIEF_BUILD_ALL=0
+          ALL=""; [ "${{ vars.BRIEF_BUILD_ALL || '1' }}" != "0" ] && ALL="--all"
           # 지난주 우리 지역은?: 발표 전 주간 자료(비공개 엔진 latest_next.json)로 미리 만들고, 칸은 엔진 data/weekly/brief_wk 에만 둠 → 월요일 7시 weekly_release.yml 이 공개
           rm -rf engine/data/weekly/brief_wk; mkdir -p pub/data/weekly engine/data/weekly/brief_wk && touch engine/data/weekly/brief_wk/.keep
           [ -f engine/data/weekly/latest_next.json ] && cp engine/data/weekly/latest_next.json pub/data/weekly/latest.json
-          python engine/scripts/brief.py build --site pub/data --wk-out engine/data/weekly/brief_wk $A $I $F $X | tee -a /tmp/brief.log
+          python engine/scripts/brief.py build --site pub/data --wk-out engine/data/weekly/brief_wk $ALL $A $I $F $X | tee -a /tmp/brief.log
       - name: 중개사 주간 블로그·인스타 글 재료 (동네마다 주 1번 — 같은 주는 건너뜀, 결과 data/brief/kit/)
         continue-on-error: true
         env:
