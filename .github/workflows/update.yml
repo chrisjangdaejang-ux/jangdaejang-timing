@@ -146,6 +146,7 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KOSIS_KEY: ${{ secrets.KOSIS_KEY }}
+          ECOS_KEY: ${{ secrets.ECOS_KEY }}             # 한국은행 ECOS 인증키(선택 — 없으면 금리만 건너뜀)
         run: |
           python scripts/applyhome.py > /tmp/applyhome.log 2>&1 && echo "청약홈 분양정보 단계 끝(세부 결과는 비공개 저장소 logs/applyhome.log)" || echo "청약홈 분양정보 실패 — 비공개 저장소 logs/applyhome.log 확인"
           python scripts/kosis.py
