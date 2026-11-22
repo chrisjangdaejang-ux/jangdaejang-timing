@@ -58,7 +58,7 @@ jobs:
           git diff --cached --quiet && { echo "바뀐 것 없음"; exit 0; }
           git commit -qm "실거래 수집($KIND) $(TZ=Asia/Seoul date +%F)"
           for i in 1 2 3 4 5; do
-            git pull -q --rebase -X theirs origin main && git push -q origin HEAD:main && { echo "올림"; exit 0; }
+            git pull -q --rebase --autostash -X theirs origin main && git push -q origin HEAD:main && { echo "올림"; exit 0; }   # 엔진에서 복사한 data/*.json 등 커밋 안 하는 변경은 autostash
             sleep $((i * 10))
           done
           echo "::error::수집 자료를 올리지 못함"; exit 1
