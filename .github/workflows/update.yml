@@ -145,7 +145,6 @@ jobs:
         timeout-minutes: 45
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
           CALL_BUDGET: '2000'
           ESTBLD_MAX_MIN: '25'
         run: |
