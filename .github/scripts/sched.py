@@ -155,6 +155,45 @@ def classify(cfg, runs, now):
     return o
 
 
+# ---------- 자료 원천 상태(수집기가 실행마다 남긴 data/source_status/*.json) ----------
+SRC_DIRS = [os.environ.get('SOURCE_STATUS_DIR') or 'data/source_status', os.environ.get('ENGINE_STATUS_DIR') or '/tmp/eng/data/source_status']
+SRC_BAD = ('failed', 'quota', 'notRegistered', 'waiting')
+SRC_KO = {'ok': '정상', 'partial': '일부(이어 받는 중)', 'quota': '하루 한도', 'notRegistered': '신청·키 필요', 'waiting': '승인 연결 대기',
+          'failed': '실패', 'skipped': '건너뜀(할 일 없음)', 'stale': '오래 안 돎'}
+
+
+def load_sources():
+    """두 곳(공개 수집 저장소 · 비공개 엔진 저장소)의 상태 파일 → 원천마다 가장 최근 것"""
+    import glob
+    out = {}
+    for d in SRC_DIRS:
+        for p in glob.glob(os.path.join(d, '*.json')):
+            try: r = json.load(open(p, encoding='utf-8'))
+            except Exception: continue
+            k = r.get('k') or os.path.basename(p)[:-5]
+            if k not in out or str(r.get('at', '')) > str(out[k].get('at', '')): out[k] = r
+    return out
+
+
+def summarize_sources(now, S=None):
+    """원천별 상태 → 그날 기록용 요약. stale = 정해 둔 주기(every_h)의 2배 + 6시간 넘게 기록이 없음(수집 단계가 아예 안 돎)"""
+    S = load_sources() if S is None else S
+    detail, groups, problems = {}, {}, []
+    for k, r in sorted(S.items()):
+        st = r.get('status', 'failed')
+        try: at = datetime.datetime.fromisoformat(r['at']).replace(tzinfo=KST)
+        except Exception: at = None
+        every = float(r.get('every_h') or 24)
+        if at and (now - at).total_seconds() / 3600 > every * 2 + 6: st = 'stale'
+        detail[k] = [st, r.get('at', ''), r.get('reason', '')]
+        groups.setdefault(st, []).append(k)
+        if st in SRC_BAD or st == 'stale':
+            problems.append(f"{r.get('label') or k}: {SRC_KO.get(st, st)}" + (f" — {r['reason']}" if r.get('reason') else '')
+                            + (f" (마지막 기록 {r.get('at', '')[5:16].replace('T', ' ')})" if st == 'stale' else ''))
+    summary = {'n': len(S), 'ok': len(groups.get('ok', [])), **{g: sorted(v) for g, v in groups.items() if g != 'ok'}}
+    return {'summary': summary, 'problems': problems, 'detail': detail}
+
+
 def cmd_watchdog(dry=False):
     now = now_kst(); today = now.date()
     rep = {'date': today.isoformat(), 'wf': {}}
@@ -198,6 +237,13 @@ def cmd_watchdog(dry=False):
         rep['watchdog_scheduled_runs'] = len(wd)
     except Exception:
         pass
+    try:
+        rep['sources'] = summarize_sources(now)
+        sm = rep['sources']['summary']
+        lines.append(f"자료 원천 {sm['n']}개: 정상 {sm['ok']}" + ''.join(f" · {SRC_KO.get(g, g)} {len(v)}" for g, v in sm.items() if g not in ('n', 'ok')))
+        lines += [f'  - {p}' for p in rep['sources']['problems']]
+    except Exception as e:
+        lines.append(f'- 자료 원천 상태 읽기 실패 {type(e).__name__}')
     print('\n'.join(lines)); summary('\n'.join(lines))
     with open('/tmp/health_today.json', 'w', encoding='utf-8') as f: json.dump(rep, f, ensure_ascii=False)
 
@@ -206,7 +252,10 @@ def cmd_merge(path):
     rep = json.load(open(path, encoding='utf-8'))
     H = {'about': '정기 실행 기록(감시 watchdog.yml 이 매일 05~09시 KST 에 씀). status: succeeded=원래 정기 실행 성공, '
                   'recovered=예비 정기 실행·감시(watchdog)·수동(manual) 실행이 채움, dispatched=감시가 다시 실행 요청함, '
-                  'missing=끝까지 없음. on_time=false 이면 원래 정기 실행이 제때(첫 예비 시각 전) 안 들어온 날(빠짐 또는 늦음). skipped=이미 끝나 건너뛴 예비 실행 수.',
+                  'missing=끝까지 없음. on_time=false 이면 원래 정기 실행이 제때(첫 예비 시각 전) 안 들어온 날(빠짐 또는 늦음). skipped=이미 끝나 건너뛴 예비 실행 수. '
+                  'sources=자료 원천(외부 데이터)별 마지막 실행 결과: summary(상태별 이름 — ok 는 개수만), problems(대표에게 보일 한 줄씩), '
+                  'detail(원천: [상태, 시각 KST, 이유]). 상태: partial=일부(이어 받는 중), quota=포털 하루 한도, notRegistered=활용신청·키 필요, '
+                  'waiting=승인 직후 연결 대기, failed=실패, skipped=할 일 없음, stale=정해 둔 주기의 2배 넘게 기록 없음(수집 단계가 안 돎).',
          'days': {}}
     if os.path.exists(HEALTH):
         try: H.update({k: v for k, v in json.load(open(HEALTH, encoding='utf-8')).items() if k != 'about'})
@@ -218,6 +267,9 @@ def cmd_merge(path):
         if prev.get('dispatched_at') and v.get('status') in ('succeeded', 'recovered'): v['watchdog_dispatched_at'] = prev['dispatched_at']
         day[k] = v
     if 'watchdog_scheduled_runs' in rep: day['watchdog_scheduled_runs'] = rep['watchdog_scheduled_runs']
+    if rep.get('sources'):
+        # 대표 09:07 보고용: summary(상태별 원천 이름) · problems(사람이 읽는 한 줄씩) · detail(원천: [상태, 시각, 이유])
+        day['sources'] = rep['sources']
     H['days'] = dict(sorted(H['days'].items())[-180:])
     os.makedirs(os.path.dirname(HEALTH) or '.', exist_ok=True)
     j = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':'))
@@ -238,4 +290,6 @@ if __name__ == '__main__':
     if a[0] == 'guard': cmd_guard(a[1])
     elif a[0] == 'watchdog': cmd_watchdog(dry='--dry-run' in a)
     elif a[0] == 'merge': cmd_merge(a[1])
+    elif a[0] == 'sources':
+        r = summarize_sources(now_kst()); print(json.dumps(r['summary'], ensure_ascii=False)); print('\n'.join(r['problems']))
     else: raise SystemExit(__doc__)

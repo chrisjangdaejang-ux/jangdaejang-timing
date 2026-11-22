@@ -168,6 +168,7 @@ jobs:
           mkdir -p logs && cp /tmp/brief.log logs/ 2>/dev/null || true
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
           git add -A data/brief data/watch/policy_news.json data/weekly/brief_wk logs/brief.log 2>/dev/null || true
+          git add -A data/source_status 2>/dev/null || true   # 자료 원천 상태(감시가 모아 09:07 보고)
           git diff --cached --quiet || git commit -qm "모닝 브리핑 $(date -u +%F)"
           for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true
       - name: 공개 저장소에 올리기 (data/brief 만, 정기 갱신과 겹치면 다시 시도)

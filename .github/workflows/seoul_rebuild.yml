@@ -46,6 +46,7 @@ jobs:
       - run: |
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
           git add data/seoul_rebuild.xlsx data/seoul_rebuild.src.txt data/seoul_api.json data/rebuild_other.json || true
+          git add -A data/source_status 2>/dev/null || true   # 자료 원천 상태(감시가 모아 09:07 보고)
           git diff --cached --quiet || git commit -m "서울 정비사업 현황 $(date -u +%F)"
           git pull --rebase -X theirs origin main || true
           git push

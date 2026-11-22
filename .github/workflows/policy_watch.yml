@@ -46,6 +46,7 @@ jobs:
           mkdir -p logs && cp /tmp/policy_watch.log /tmp/devproj_watch.log logs/ 2>/dev/null || true
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
           for f in data/policy.json data/policy_candidates.json data/devproj.json data/devproj_candidates.json data/watch/policy_watch.json data/watch/devproj_watch.json logs/policy_watch.log logs/devproj_watch.log; do [ -f "$f" ] && git add "$f"; done; true
+          git add -A data/source_status 2>/dev/null || true   # 자료 원천 상태(감시가 모아 09:07 보고)
           git diff --cached --quiet || git commit -qm "정책·개발사업 수집 $(date -u +%F)"
           git pull -q --rebase -X theirs || true
           git push -q || true

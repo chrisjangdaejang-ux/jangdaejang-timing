@@ -55,5 +55,6 @@ jobs:
           cd engine
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
           git add data/employer logs/nps.log logs/dart.log 2>/dev/null || true
+          git add -A data/source_status 2>/dev/null || true   # 자료 원천 상태(감시가 모아 09:07 보고)
           git diff --cached --quiet || git commit -qm "고용 거점 자료 $(date -u +%F)"
           for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true

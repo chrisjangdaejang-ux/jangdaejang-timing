@@ -319,6 +319,11 @@ jobs:
         continue-on-error: true
         run: python scripts/track.py snap site/data
 
+      - name: 자료 원천 상태 (원천마다 한 줄 — ok / 실패+이유 / 한도 / 신청 필요, 실행 요약 표에도)
+        if: always()
+        continue-on-error: true
+        run: python scripts/source_status.py print || true
+
       - name: 엔진 데이터 저장 (비공개 저장소)
         if: always()
         run: |

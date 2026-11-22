@@ -4,6 +4,8 @@ name: 정기 실행 감시 (매일 05~09시)
 #  · 30분마다(05:13~08:43 KST) 오늘 할 일이 끝났는지 확인: 모닝 브리핑(공개 market.json 날짜까지)·검색용 페이지·단지 시설(오전),
 #    월요일엔 주간 계산·주간 발표(7시 이후만). 정해 둔 시각이 지났는데 성공한 실행이 없고 도는 중인 것도 없으면 REST 로 다시 실행(하루 최대 2번).
 #  · 결과는 data/schedule_health.json 에 하루 한 줄씩(succeeded / recovered / missing …) — GitHub 가 얼마나 자주 빼먹는지 보려고.
+#  · 자료 원천(외부 데이터)마다 수집기가 남긴 상태(data/source_status/*.json, 엔진 저장소 것 포함)를 모아 그날 기록의 'sources' 에
+#    summary·problems(대표 09:07 보고에 그대로 보일 한 줄씩)·detail 로 남긴다 — 실패·한도·신청 필요·오래 안 돎을 대표가 찾지 않아도 되게.
 #  · 이 감시도 빠질 수 있으니 예비 정기 시각이 먼저다. 수동 실행(dry_run=true)은 다시 실행하지 않고 확인만.
 on:
   schedule:
@@ -30,9 +32,19 @@ jobs:
           sparse-checkout: |
             .github/scripts/
             data/schedule_health.json
-      - name: 오늘 할 일 확인 · 빠진 것 다시 실행
+            data/source_status/
+      - name: 자료 원천 상태 불러오기 (비공개 엔진 저장소 data/source_status — 단지 시설·생활·정책·고용 수집 결과)
+        continue-on-error: true
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          [ -n "$PUBLISH_TOKEN" ] || exit 0
+          git clone -q --depth 1 --filter=blob:none --sparse "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" /tmp/eng \
+            && (cd /tmp/eng && git sparse-checkout set --no-cone /data/source_status/) && ls /tmp/eng/data/source_status 2>/dev/null | wc -l || true
+      - name: 오늘 할 일 확인 · 빠진 것 다시 실행 · 자료 원천 요약
         env:
           GH_TOKEN: ${{ github.token }}
+          ENGINE_STATUS_DIR: /tmp/eng/data/source_status
         run: python3 .github/scripts/sched.py watchdog ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
       - name: 기록 (data/schedule_health.json)
         if: github.event.inputs.dry_run != 'true'
