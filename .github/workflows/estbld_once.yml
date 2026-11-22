@@ -1,0 +1,50 @@
+name: 통건물 추정 위치 첫 수집 (한 번만, 끝나면 이 파일 지움)
+on:
+  push:
+    paths: ['.github/workflows/estbld_once.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: estbld-once
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests numpy
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+      - name: 시험 호출 (HTTP 상태·결과 코드·건수만)
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python scripts/estbld.py probe || true
+      - name: 표제부 수집 + 맞추기 (로그에는 건수만, 세부는 비공개 엔진 logs/estbld_once.log)
+        timeout-minutes: 120
+        continue-on-error: true
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          CALL_BUDGET: '6000'
+        run: |
+          python scripts/estbld.py > /tmp/estbld_once.log 2>&1 || true
+          grep -E '^\[estbld\] (대상|받은|통건물|포털|건축물대장|서비스|오류)' /tmp/estbld_once.log || true
+      - name: 엔진에 저장 (비공개 저장소)
+        if: always()
+        run: |
+          cd engine
+          mkdir -p logs && cp /tmp/estbld_once.log logs/ 2>/dev/null || true
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/private/estbld data/private/estbld_*.json logs/estbld_once.log 2>/dev/null || true
+          git diff --cached --quiet || git commit -qm "통건물 추정 위치 첫 수집 $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done

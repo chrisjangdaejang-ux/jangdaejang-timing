@@ -140,6 +140,18 @@ jobs:
           CALL_BUDGET: '1500'
         run: python scripts/bld.py
 
+      - name: 통건물 추정 위치 (건축HUB 건축물대장 표제부와 가려진 지번 거래 맞추기 — 지번이 든 파일·기준·검증은 비공개 엔진 저장소 data/private/ 에만, 공개는 약 100m 좌표·용도·연면적·준공)
+        continue-on-error: true
+        timeout-minutes: 45
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
+          CALL_BUDGET: '2000'
+        run: |
+          if [ ! -d engine/data ]; then echo "엔진 저장소 없음 → 통건물 추정 위치 건너뜀(지번 파일을 공개 저장소에 두지 않기 위해)"; exit 0; fi
+          python scripts/estbld.py > /tmp/estbld.log 2>&1 && echo "통건물 추정 위치 단계 끝" || echo "통건물 추정 위치 건너뜀 — logs/estbld.log 확인"
+          grep -E '^\[estbld\] (받은|통건물)' /tmp/estbld.log || true
+
       - name: 분양·인구 통계 (청약홈 입주예정, KOSIS 인구·연령별 인구·인구이동·세대원수)
         timeout-minutes: 25
         continue-on-error: true
