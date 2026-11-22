@@ -7,9 +7,28 @@ name: 정기 실행 감시 (매일 05~09시)
 #  · 자료 원천(외부 데이터)마다 수집기가 남긴 상태(data/source_status/*.json, 엔진 저장소 것 포함)를 모아 그날 기록의 'sources' 에
 #    summary·problems(대표 09:07 보고에 그대로 보일 한 줄씩)·detail 로 남긴다 — 실패·한도·신청 필요·오래 안 돎을 대표가 찾지 않아도 되게.
 #  · 이 감시도 빠질 수 있으니 예비 정기 시각이 먼저다. 수동 실행(dry_run=true)은 다시 실행하지 않고 확인만.
+#  · GitHub 정기 실행(cron)에만 기대지 않게, 다른 워크플로가 끝날 때마다(workflow_run)도 깨어나 같은 확인을 함(2026-11-23 새벽 GitHub 정기 실행이
+#    몇 시간씩 밀려 브리핑·주간 계산·발표·감시·update 가 모두 안 돎). 깨우는 쪽도 늦게라도 돌기만 하면 됨 → 빠진 것을 GITHUB_TOKEN 으로 다시 실행.
+#    update.yml 은 6시간마다 도는 것이라 '최근 9시간 동안 실행이 하나도 없으면' 다시 실행. 자세한 설명: docs/schedule.md
 on:
   schedule:
     - cron: '13,43 20-23 * * *'   # 한국 시각 05:13·05:43 … 08:13·08:43
+    - cron: '28 */3 * * *'        # 3시간마다 한 번 더(update 확인용)
+  workflow_run:                   # 정기 실행과 상관없는 두 번째 깨우개 — 아래 워크플로가 끝날 때마다(성공·실패 모두)
+    workflows:
+      - '단지 시설 원자료 (K-apt 상세, 매일 + 수동)'
+      - '실거래 수집 및 사이트 갱신'
+      - '건물 위치 받기 (오피스텔·빌라·상가 — 행정안전부 주소정보)'
+      - '살아보니 거르기 설정 넣기 (매일 + 엔진 설정을 바꿨을 때 직접 실행)'
+      - '정비사업 현황 받기 (매주)'
+      - '장대장TV 주간 유튜브 키트 (일요일 밤)'
+      - '부동산 정책 수집 (매일)'
+      - '모닝 브리핑 (매일 새벽)'
+      - '주간 실거래 동향 (매주 월요일 새벽)'
+      - '주간 실거래 동향 발표 (매주 월요일 오전 7시)'
+      - '검색용 페이지·사이트맵 (매일)'
+      - '주간 현장 보고서 (매주 월요일)'
+    types: [completed]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -42,12 +61,14 @@ jobs:
           git clone -q --depth 1 --filter=blob:none --sparse "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" /tmp/eng \
             && (cd /tmp/eng && git sparse-checkout set --no-cone /data/source_status/) && ls /tmp/eng/data/source_status 2>/dev/null | wc -l || true
       - name: 오늘 할 일 확인 · 빠진 것 다시 실행 · 자료 원천 요약
+        id: w
         env:
           GH_TOKEN: ${{ github.token }}
           ENGINE_STATUS_DIR: /tmp/eng/data/source_status
         run: python3 .github/scripts/sched.py watchdog ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
       - name: 기록 (data/schedule_health.json)
-        if: github.event.inputs.dry_run != 'true'
+        # 다른 워크플로 끝남으로 깨어난 실행(workflow_run)은 다시 실행을 요청했을 때만 기록(하루 수십 번 커밋하지 않게)
+        if: github.event.inputs.dry_run != 'true' && (github.event_name != 'workflow_run' || steps.w.outputs.dispatched != '')
         run: |
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
           for i in 1 2 3 4 5; do

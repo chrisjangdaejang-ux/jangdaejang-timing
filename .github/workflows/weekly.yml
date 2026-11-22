@@ -7,6 +7,7 @@ name: 주간 실거래 동향 (매주 월요일 새벽)
 #    모닝 브리핑(brief.yml 05:07)은 엔진 data/weekly/latest_next.json 으로 '지난주 우리 지역은?' 칸을 미리 만들어 엔진에 두고, 그 칸도 7시에 공개된다.
 #  · mode=probe: 부동산원 주간 표 찾기만 시험(공개·저장 없음). mode=compare: 공식 지수와 나란히 본 기록만 다시 계산(서비스 전 주는 원자료로 소급) → 보관·공개.
 run-name: "주간 실거래 동향 · ${{ inputs.mode || 'build' }}"   # 확인 단계가 시험 실행(probe·compare)을 '오늘 계산함'으로 치지 않게
+# 정기 실행이 빠지면 감시(watchdog.yml)가 다른 워크플로가 끝날 때마다(workflow_run)도 확인해 다시 실행 — docs/schedule.md
 on:
   schedule:
     - cron: '43 18 * * 0'     # 한국 시각 월요일 03:43 계산 → 발표는 월요일 오전 7시(화면·브리핑이 판의 release 시각부터 보여 줌). 브리핑 05:07 전에 끝나게

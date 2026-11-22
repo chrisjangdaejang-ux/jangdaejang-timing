@@ -28,6 +28,11 @@ WF = {
     'report':         dict(file='report.yml',         primary='07:52', backups=['08:12', '08:37', '09:22'], due='08:25', since='07:00', dow=1),
     'facility':       dict(file='facility.yml',       primary='02:37', backups=['02:57', '03:22', '04:07'], due='05:00', since='half'),
 }
+# 몇 시간마다 도는 워크플로 — 최근 every_h + grace_h 시간 안에 시작된 실행(성공·도는 중·실패 모두)이 하나도 없으면 감시가 다시 실행(하루 최대 MAX_DISPATCH번).
+# 2026-11-22 밤 GitHub 정기 실행이 몇 시간씩 밀리거나 빠져 update.yml 18:21 UTC 실행이 아예 없었음.
+INTERVAL = {
+    'update': dict(file='update.yml', every_h=6, grace_h=3),
+}
 # 매월 결과물(워크플로가 아니라 update.yml 안의 한 단계) — 공개 파일이 자료 끝 달(index.json dataTo)을 따라오는지 매일 확인해 기록만(다시 실행 안 함).
 # behind 는 자료 끝 달이 바뀐 뒤 grace 일이 지나도 못 따라온 경우만 문제로 알림(새 달 자료가 들어온 날은 다음 update 실행이 만들 시간을 줌).
 MONTHLY = {
@@ -229,6 +234,7 @@ def summarize_sources(now, S=None):
 def cmd_watchdog(dry=False):
     now = now_kst(); today = now.date()
     rep = {'date': today.isoformat(), 'wf': {}}
+    dispatched = []
     lines = [f'감시 {now:%Y-%m-%d %H:%M} KST' + (' (dry-run)' if dry else '')]
     for name, cfg in WF.items():
         if cfg.get('dow') and today.isoweekday() != cfg['dow']: continue
@@ -252,7 +258,7 @@ def cmd_watchdog(dry=False):
             else:
                 try:
                     api(f'/repos/{REPO}/actions/workflows/{cfg["file"]}/dispatches', 'POST', {'ref': 'main'})
-                    o['status'] = 'dispatched'; o['dispatched_at'] = kst(now)
+                    o['status'] = 'dispatched'; o['dispatched_at'] = kst(now); dispatched.append(name)
                     lines.append(f'- {name}: 없음 → 다시 실행 요청함(dispatch)')
                 except urllib.error.HTTPError as e:
                     o['note'] = f'dispatch 실패 HTTP {e.code}'
@@ -263,6 +269,31 @@ def cmd_watchdog(dry=False):
             lines.append(f'- {name}: {o["status"]}')
         if name in ('brief', 'report') and oc and oc.get('ok') is False and o['status'] in ('succeeded', 'recovered'):
             lines.append(f'  ::warning::{name} 실행은 성공했지만 공개 결과 date={oc.get("date")} (오늘 {today})')
+        rep['wf'][name] = o
+    for name, cfg in INTERVAL.items():
+        try:
+            runs = runs_since(cfg['file'], now - datetime.timedelta(hours=cfg['every_h'] + cfg['grace_h']))
+            mine = [r for r in runs_since(cfg['file'], at(today, '00:00'))
+                    if r['event'] == 'workflow_dispatch' and (r.get('triggering_actor') or {}).get('login') == BOT]
+        except Exception as e:
+            lines.append(f'- {name}: 실행 기록 확인 실패 {type(e).__name__}'); continue
+        o = {'every_h': cfg['every_h'], 'recent': len(runs)}
+        if runs:
+            r = runs[-1]; o.update(status='ok', last=kst(r['_t']), last_event=r['event'], last_state=r.get('conclusion') or r.get('status'))
+            lines.append(f'- {name}: 최근 실행 {o["last"]} {r["event"]} ({o["last_state"]})')
+        elif len(mine) >= MAX_DISPATCH:
+            o.update(status='missing', note=f'감시가 오늘 이미 {len(mine)}번 다시 실행 — 더 하지 않음')
+            lines.append(f'- {name}: {cfg["every_h"] + cfg["grace_h"]}시간 동안 실행 없음 · {o["note"]}')
+        elif dry:
+            o['status'] = 'missing'; lines.append(f'- {name}: {cfg["every_h"] + cfg["grace_h"]}시간 동안 실행 없음 → (dry-run) 다시 실행하지 않음')
+        else:
+            try:
+                api(f'/repos/{REPO}/actions/workflows/{cfg["file"]}/dispatches', 'POST', {'ref': 'main'})
+                o.update(status='dispatched', dispatched_at=kst(now)); dispatched.append(name)
+                lines.append(f'- {name}: {cfg["every_h"] + cfg["grace_h"]}시간 동안 실행 없음 → 다시 실행 요청함(dispatch)')
+            except urllib.error.HTTPError as e:
+                o.update(status='missing', note=f'dispatch 실패 HTTP {e.code}')
+                lines.append(f'- {name}: ::error::다시 실행 요청 실패 HTTP {e.code}')
         rep['wf'][name] = o
     try:
         wd = [r for r in runs_since('watchdog.yml', at(today, '00:00')) if r['event'] == 'schedule']
@@ -287,7 +318,11 @@ def cmd_watchdog(dry=False):
         lines += [f'  - {p}' for p in rep['sources']['problems']]
     except Exception as e:
         lines.append(f'- 자료 원천 상태 읽기 실패 {type(e).__name__}')
+    if os.environ.get('GITHUB_EVENT_NAME') == 'workflow_run':
+        wr = ((json.load(open(os.environ['GITHUB_EVENT_PATH'])) if os.environ.get('GITHUB_EVENT_PATH') else {}).get('workflow_run') or {})
+        lines.insert(1, f"(다른 워크플로 끝남으로 깨어남: {wr.get('name', '?')} {wr.get('event', '')} {wr.get('conclusion', '')})")
     print('\n'.join(lines)); summary('\n'.join(lines))
+    gh_out(dispatched=','.join(dispatched))
     with open('/tmp/health_today.json', 'w', encoding='utf-8') as f: json.dump(rep, f, ensure_ascii=False)
 
 
