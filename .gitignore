@@ -31,6 +31,8 @@ data/seoul_station_master.json
 # 정비구역 경계·지번 좌표 캐시(zone_bounds.py)·공식 구역 경계(devmap.py) — 엔진 비공개 저장소에만(지번 좌표는 민간 검색 좌표라 공개 금지)
 data/zone_poly.json
 data/villa_xy.json
+# 건물 위치(bldxy.py) — 소수 여섯째 자리 원본은 엔진 비공개 저장소에만, 공개는 site/data 의 셋째 자리만
+data/bldxy.json
 data/devmap_bounds.json
 data/emd_center.json
 

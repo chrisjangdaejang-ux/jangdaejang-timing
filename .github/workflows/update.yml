@@ -288,6 +288,10 @@ jobs:
         continue-on-error: true
         run: python scripts/villa.py > /tmp/villa.log 2>&1 && echo "빌라 데이터 생성 완료" || echo "빌라 데이터 생성 건너뜀"
 
+      - name: 오피스텔·빌라·상가 건물 위치 넣기 (행정안전부 주소정보 좌표 — bldxy.yml 이 받아 둔 비공개 data/bldxy.json → 공개 파일엔 소수 셋째 자리만)
+        continue-on-error: true
+        run: python scripts/bldxy.py apply site/data || echo "건물 위치 넣기 건너뜀(지도는 동 가운데 그대로)"
+
       - name: 청약 데이터 생성 (청약홈 공고·당첨 가점, 세부 결과는 비공개 저장소 logs/chungyak.log에만 기록)
         continue-on-error: true
         env:

@@ -1,0 +1,69 @@
+name: 건물 위치 받기 (오피스텔·빌라·상가 — 행정안전부 주소정보)
+
+# 공공 자료만: 주소정보누리집 건물DB(월 전체분, 신청 없이 받음)로 법정동+지번 → 도로명주소,
+# 좌표제공 API(승인키 JUSO_COORD_KEY)로 건물 출입구 좌표. 카카오·네이버 좌표는 쓰지 않는다.
+# 소수 여섯째 자리 원본은 엔진 비공개 저장소(data/bldxy.json)에만 — 공개 파일에는 update.yml 이 셋째 자리만 넣는다.
+# 승인키가 없으면 지번 ↔ 도로명 맞춤까지만 해 두고, 키를 Secrets 에 넣은 다음 실행부터 좌표를 채운다(이어 받기).
+on:
+  schedule:
+    - cron: '43 */6 * * *'   # 6시간마다 — 좌표를 다 채운 뒤에는 할 일이 없어 1~2분이면 끝남(건물DB 새 판은 한 달에 한 번)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bldxy
+  cancel-in-progress: false
+
+jobs:
+  bldxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+          echo "엔진 불러옴"
+      - name: 대상 건물 목록 (지난번 공개 자료의 오피스텔·빌라·상가 건물)
+        run: |
+          rm -rf /tmp/prev
+          git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages https://github.com/chrisjangdaejang-ux/jangdaejang-data.git /tmp/prev
+          git -C /tmp/prev sparse-checkout set data/offi data/comm data/villa
+          mkdir -p site/data && cp -r /tmp/prev/data/. site/data/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests pyproj
+      - name: 건물DB(새 판일 때만) + 좌표제공 API(승인키 있을 때, 상한 안에서 이어 받기)
+        timeout-minutes: 85
+        env:
+          JUSO_COORD_KEY: ${{ secrets.JUSO_COORD_KEY }}
+          BLDXY_BUDGET: '40000'
+          BLDXY_MAX_MIN: '70'
+        run: python scripts/bldxy.py fetch site/data 2>&1 | tee /tmp/bldxy.log
+      - name: 엔진 데이터 저장 (비공개 저장소)
+        if: always()
+        run: |
+          [ -d engine ] || exit 0
+          [ -f data/bldxy.json ] && cp data/bldxy.json engine/data/ || true
+          mkdir -p engine/logs && cp /tmp/bldxy.log engine/logs/ 2>/dev/null || true
+          cd engine
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/bldxy.json logs/bldxy.log 2>/dev/null || true
+          [ -f data/private/juso_lot_xy.json ] && git add data/private/juso_lot_xy.json || true
+          git diff --cached --quiet || git commit -qm "건물 위치 $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && break; sleep 5; done || true
+      - name: 자료 원천 상태 저장
+        if: always()
+        run: |
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add -A data/source_status 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -qm "자료 원천 상태(건물 위치) $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase -X theirs origin main && git push -q && break; sleep 5; done || true
