@@ -147,6 +147,7 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
           CALL_BUDGET: '2000'
+          ESTBLD_MAX_MIN: '25'
         run: |
           if [ ! -d engine/data ]; then echo "엔진 저장소 없음 → 통건물 추정 위치 건너뜀(지번 파일을 공개 저장소에 두지 않기 위해)"; exit 0; fi
           python scripts/estbld.py > /tmp/estbld.log 2>&1 && echo "통건물 추정 위치 단계 끝" || echo "통건물 추정 위치 건너뜀 — logs/estbld.log 확인"
