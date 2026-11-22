@@ -1,1 +1,1 @@
-{"k":"bld","status":"failed","reason":"건축물대장 주소 확인 실패: HTTP 503: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<OpenAPI_ServiceResponse>\n<cmmMsgHeader>\n  <errMsg>SERV","at":"2026-11-22T22:15","wf":"실거래 수집 및 사이트 갱신","run":"45022818723","every_h":6,"label":"건축물대장(건축HUB)","screens":"재건축 사업성(용적률·대지면적)","calls":29,"have":2534}
+{"k":"bld","status":"ok","reason":"","at":"2026-11-23T02:34","wf":"실거래 수집 및 사이트 갱신","run":"45034094841","every_h":6,"label":"건축물대장(건축HUB)","screens":"재건축 사업성(용적률·대지면적)","calls":250,"have":2675,"last_ok":"2026-11-23T02:34"}

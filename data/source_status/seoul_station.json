@@ -1,1 +1,1 @@
-{"k":"seoul_station","status":"ok","reason":"","at":"2026-11-22T23:31","wf":"실거래 수집 및 사이트 갱신","run":"45022818723","every_h":6,"label":"서울 역사 위치(열린데이터)","screens":"지하철 거리","last_ok":"2026-11-22T23:31"}
+{"k":"seoul_station","status":"failed","reason":"HTTPConnectionPool(host='openapi.seoul.go.kr', port=8088): Max retries exceeded with url: /4c514e464","at":"2026-11-23T03:57","wf":"실거래 수집 및 사이트 갱신","run":"45034094841","every_h":6,"label":"서울 역사 위치(열린데이터)","screens":"지하철 거리","last_ok":"2026-11-22T18:14"}
