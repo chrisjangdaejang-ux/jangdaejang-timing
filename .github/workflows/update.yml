@@ -109,7 +109,7 @@ jobs:
         run: |
           for k in rh_rent offi_rent offi_trade sh_rent nrg_trade sh_trade; do KIND=$k python scripts/collect.py || echo "$k 수집 건너뜀"; done
 
-      - name: 토지 매매 수집 (2006-01부터 과거 채우기, 별도 API 한도 하루 1,000회)
+      - name: 토지 매매 수집 (2006-01부터 과거 채우기, 별도 API 한도 — 운영계정 하루 9,500회까지)
         # 위 단계가 시간 한도에 걸려도 따로 돌도록 단계를 나눔. 다른 자료와 한도를 나눠 쓰지 않음(API별 한도)
         timeout-minutes: 20
         continue-on-error: true
@@ -117,7 +117,8 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           KIND: land_trade
           CALL_BUDGET: ${{ vars.LAND_CALL_BUDGET || '2400' }}
-          # 개발계정 하루 한도 1,000회 → 수집기 기본 980. 운영계정 승인으로 한도가 늘면 변수 LAND_DAILY_CAP 만 올리면 됨
+          # 2026-11-22 운영계정 신청 → 수집기 기본 하루 9,500회. 운영계정이 아직 안 켜졌으면 포털 '한도 초과'(약 1,000회)에서 멈추고 다음 날 이어 받음.
+          # 변수 LAND_DAILY_CAP 이 있으면 그 값이 우선(비워 두면 됨)
           DAILY_CAP_LAND_TRADE: ${{ vars.LAND_DAILY_CAP || '' }}
           RUNS_PER_DAY: '4'
           MAX_MINUTES: '15'

@@ -1,0 +1,64 @@
+name: 실거래 한 종류만 바로 수집 (수동)
+# 정기 실행(update.yml, 6시간마다)을 기다리지 않고 공공데이터포털 실거래 API 한 종류만 바로 받아 본다.
+#  예: 운영계정(트래픽 증가) 승인 직후 토지 매매(land_trade)가 하루 1,000회를 넘겨 받아지는지 확인.
+#  받은 원자료(data/<종류>/, data/manifest_<종류>.json)와 하루 호출 기록(data/collect_status.json)만 올린다. 사이트 생성·배포는 하지 않음.
+#  하루 한도는 collect.py 가 collect_status.json 의 오늘 호출 수를 보고 나눠 쓰므로 정기 실행과 합쳐도 넘지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: '종류(land_trade·sh_trade·nrg_trade·offi_trade·offi_rent·rh_rent·sh_rent·villa·rent·trade)'
+        default: 'land_trade'
+      budget:
+        description: '이번 실행 최대 호출 수'
+        default: '2400'
+permissions:
+  contents: write
+concurrency:
+  group: collect-one
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
+          cp -r engine/scripts ./scripts
+          cp engine/data/*.json data/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q requests
+      - name: 수집
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KIND: ${{ github.event.inputs.kind || 'land_trade' }}
+          CALL_BUDGET: ${{ github.event.inputs.budget || '2400' }}
+          DAILY_CAP_LAND_TRADE: ${{ vars.LAND_DAILY_CAP || '' }}
+          RUNS_PER_DAY: '4'
+          MAX_MINUTES: '20'
+          WORKERS: '4'
+        run: python scripts/collect.py
+      - name: 자료 원천 상태 한 줄
+        if: always()
+        run: python scripts/source_status.py print || true
+      - name: 저장 (받은 원자료·호출 기록만)
+        if: always()
+        env:
+          KIND: ${{ github.event.inputs.kind || 'land_trade' }}
+        run: |
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          case "$KIND" in trade) P="data/raw data/manifest.json";; rent) P="data/rent data/manifest_rent.json";; villa) P="data/villa data/manifest_villa.json";; *) P="data/$KIND data/manifest_$KIND.json";; esac
+          git add $P data/collect_status.json data/source_status 2>/dev/null || true
+          git diff --cached --quiet && { echo "바뀐 것 없음"; exit 0; }
+          git commit -qm "실거래 수집($KIND) $(TZ=Asia/Seoul date +%F)"
+          for i in 1 2 3 4 5; do
+            git pull -q --rebase -X theirs origin main && git push -q origin HEAD:main && { echo "올림"; exit 0; }
+            sleep $((i * 10))
+          done
+          echo "::error::수집 자료를 올리지 못함"; exit 1
