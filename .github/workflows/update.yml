@@ -145,6 +145,8 @@ jobs:
         timeout-minutes: 45
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}   # 공공 좌표(행안부)가 없는 필지만 임시 좌표(대표 결정 2026-11-22). 되돌리기: 저장소 변수 ESTBLD_PUB_SRC=juso
+          ESTBLD_PUB_SRC: ${{ vars.ESTBLD_PUB_SRC || 'juso,geo' }}
           CALL_BUDGET: '2000'
           ESTBLD_MAX_MIN: '25'
         run: |
