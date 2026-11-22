@@ -28,6 +28,12 @@ WF = {
     'report':         dict(file='report.yml',         primary='07:52', backups=['08:12', '08:37', '09:22'], due='08:25', since='07:00', dow=1),
     'facility':       dict(file='facility.yml',       primary='02:37', backups=['02:57', '03:22', '04:07'], due='05:00', since='half'),
 }
+# 매월 결과물(워크플로가 아니라 update.yml 안의 한 단계) — 공개 파일이 자료 끝 달(index.json dataTo)을 따라오는지 매일 확인해 기록만(다시 실행 안 함).
+# behind 는 자료 끝 달이 바뀐 뒤 grace 일이 지나도 못 따라온 경우만 문제로 알림(새 달 자료가 들어온 날은 다음 update 실행이 만들 시간을 줌).
+MONTHLY = {
+    'trackrecord': dict(label='예측 적중 기록(매월)', path='data/trackrecord.json', key='end', grace_days=3),
+}
+PUB = os.environ.get('PUB_RAW', 'https://raw.githubusercontent.com/chrisjangdaejang-ux/jangdaejang-data/gh-pages/')
 ACTIVE = {'queued', 'in_progress', 'waiting', 'requested', 'pending'}
 NOT_REAL = ('· probe', '· compare')    # 시험 실행(run-name)은 '오늘 한 것'으로 치지 않음
 
@@ -157,6 +163,30 @@ def classify(cfg, runs, now):
     return o
 
 
+def _pub_json(path):
+    req = urllib.request.Request(PUB + path, headers={'Cache-Control': 'no-cache'})
+    with urllib.request.urlopen(req, timeout=30) as r: return json.loads(r.read())
+
+
+def monthly_check(now, get=None):
+    """MONTHLY 마다 {status: ok|behind|missing|error, end, dataTo, built} — get(path) 는 시험용(기본: 공개 저장소에서 읽음)"""
+    get = get or _pub_json
+    out = {}
+    try: data_to = (get('data/index.json') or {}).get('dataTo')
+    except Exception as e: return {k: {'status': 'error', 'note': f'index.json {type(e).__name__}'} for k in MONTHLY}
+    for k, c in MONTHLY.items():
+        try: d = get(c['path']) or {}
+        except urllib.error.HTTPError as e:
+            out[k] = {'status': 'missing' if e.code == 404 else 'error', 'dataTo': data_to}; continue
+        except Exception as e:
+            out[k] = {'status': 'error', 'note': type(e).__name__, 'dataTo': data_to}; continue
+        o = {'end': d.get(c['key']), 'dataTo': data_to, 'built': d.get('built')}
+        o['status'] = 'ok' if o['end'] == data_to else 'behind'
+        if o['status'] == 'behind' and now.day <= c['grace_days']: o['status'] = 'pending'     # 새 달 자료가 막 들어옴 — 며칠 안에 따라오면 정상
+        out[k] = o
+    return out
+
+
 # ---------- 자료 원천 상태(수집기가 실행마다 남긴 data/source_status/*.json) ----------
 SRC_DIRS = [os.environ.get('SOURCE_STATUS_DIR') or 'data/source_status', os.environ.get('ENGINE_STATUS_DIR') or '/tmp/eng/data/source_status']
 SRC_BAD = ('failed', 'quota', 'notRegistered', 'waiting')
@@ -240,7 +270,18 @@ def cmd_watchdog(dry=False):
     except Exception:
         pass
     try:
+        rep['monthly'] = monthly_check(now)
+        for k, o in rep['monthly'].items():
+            lab = MONTHLY[k]['label']
+            if o['status'] in ('ok', 'pending'): lines.append(f"- {lab}: {o['status']} (자료 끝 {o.get('end')}, 공개 자료 {o.get('dataTo')})")
+            else: lines.append(f"- {lab}: ::warning::{o['status']} (공개 파일 {o.get('end')} / 자료 끝 {o.get('dataTo')}) — update.yml '예측 적중 기록' 단계·logs/trackrecord.log 확인")
+    except Exception as e:
+        lines.append(f'- 매월 결과물 확인 실패 {type(e).__name__}')
+    try:
         rep['sources'] = summarize_sources(now)
+        for k, o in (rep.get('monthly') or {}).items():            # 매월 결과물이 못 따라오면 대표 보고 줄에도
+            if o.get('status') in ('behind', 'missing', 'error'):
+                rep['sources']['problems'].append(f"{MONTHLY[k]['label']}: {o['status']} — 공개 파일 {o.get('end')} / 자료 끝 {o.get('dataTo')}")
         sm = rep['sources']['summary']
         lines.append(f"자료 원천 {sm['n']}개: 정상 {sm['ok']}" + ''.join(f" · {SRC_KO.get(g, g)} {len(v)}" for g, v in sm.items() if g not in ('n', 'ok')))
         lines += [f'  - {p}' for p in rep['sources']['problems']]
@@ -255,6 +296,7 @@ def cmd_merge(path):
     H = {'about': '정기 실행 기록(감시 watchdog.yml 이 매일 05~09시 KST 에 씀). status: succeeded=원래 정기 실행 성공, '
                   'recovered=예비 정기 실행·감시(watchdog)·수동(manual) 실행이 채움, dispatched=감시가 다시 실행 요청함, '
                   'missing=끝까지 없음. on_time=false 이면 원래 정기 실행이 제때(첫 예비 시각 전) 안 들어온 날(빠짐 또는 늦음). skipped=이미 끝나 건너뛴 예비 실행 수. '
+                  'monthly=매월 결과물(예측 적중 기록 trackrecord): ok=공개 파일이 자료 끝 달을 따라옴, pending=새 달 자료가 막 들어옴(3일 안), behind=못 따라옴, missing=파일 없음. '
                   'sources=자료 원천(외부 데이터)별 마지막 실행 결과: summary(상태별 이름 — ok 는 개수만), problems(대표에게 보일 한 줄씩), '
                   'detail(원천: [상태, 시각 KST, 이유]). 상태: partial=일부(이어 받는 중), quota=포털 하루 한도, notRegistered=활용신청·키 필요, '
                   'waiting=승인 직후 연결 대기, failed=실패, skipped=할 일 없음, stale=정해 둔 주기의 2배 넘게 기록 없음(수집 단계가 안 돎).',
@@ -269,6 +311,9 @@ def cmd_merge(path):
         if prev.get('dispatched_at') and v.get('status') in ('succeeded', 'recovered'): v['watchdog_dispatched_at'] = prev['dispatched_at']
         day[k] = v
     if 'watchdog_scheduled_runs' in rep: day['watchdog_scheduled_runs'] = rep['watchdog_scheduled_runs']
+    if rep.get('monthly'):
+        # 매월 결과물(예측 적중 기록 등): {status: ok|pending|behind|missing|error, end, dataTo, built}
+        day['monthly'] = rep['monthly']
     if rep.get('sources'):
         # 대표 09:07 보고용: summary(상태별 원천 이름) · problems(사람이 읽는 한 줄씩) · detail(원천: [상태, 시각, 이유])
         day['sources'] = rep['sources']

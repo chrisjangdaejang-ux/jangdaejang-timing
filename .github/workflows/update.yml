@@ -337,6 +337,12 @@ jobs:
         continue-on-error: true
         run: python scripts/backtest_monthly.py > /tmp/backtest.log 2>&1 && echo "재현 성적표 단계 끝" || echo "재현 성적표 실패 — logs/backtest.log 확인"
 
+      - name: 예측 적중 기록 (매월 — 자료 끝 달이 바뀐 첫 실행만, 최근 3년 매달 그때 점수의 6개월·1년·2년 뒤 결과를 묶음 숫자로만 site/data/trackrecord.json, 세부는 비공개 저장소 logs/trackrecord.log)
+        # 재현 성적표 단계가 채운 engine/data/bt_cache(기준 월별 그때 점수)를 그대로 씀 → 미래 정보 없음. 상태는 data/source_status/trackrecord.json(감시 schedule_health 'monthly')
+        timeout-minutes: 40
+        continue-on-error: true
+        run: python scripts/trackrecord.py > /tmp/trackrecord.log 2>&1 && echo "예측 적중 기록 단계 끝" || echo "예측 적중 기록 실패 — logs/trackrecord.log 확인(직전 공개본 유지)"
+
       - name: 예측 스냅숏 (그달 첫 실행만 — 공개 자료 그대로 고정 저장, 이미 있으면 건너뜀·덮어쓰기 없음, 해시는 공개 index.json·track.json)
         # 저장 위치: engine/data/pred_snapshots/YYYY-MM.json + ledger.json → 다음 '엔진 데이터 저장' 단계가 비공개 저장소에 커밋
         timeout-minutes: 10
