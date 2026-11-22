@@ -90,8 +90,23 @@ jobs:
           JDJ_DATA: ${{ github.workspace }}/data
           BRIEF_CALL_BUDGET: ${{ vars.BRIEF_CALL_BUDGET || '300' }}
         run: |
-          [ -f /tmp/brief_areas.json ] || { echo "구독 동네 없음 → 건너뜀(정기 수집 자료로 만듦)"; exit 0; }
-          python engine/scripts/brief.py fetch --out /tmp/fresh --areas /tmp/brief_areas.json
+          # ① 구독 동네 먼저(호출 예산 우선) ② 기본 동네(BRIEF_DEFAULT, 기본 서울 25곳) 중 ①에 없는 곳 — 정기 수집은 최근 달을 6일마다만 다시 받아서,
+          #    이 단계 없이는 기본 동네 '새로 올라온 거래'가 매일 0건이 됨(2026-11-21·22 실제로 0건, 구독 목록 토큰 없음)
+          if [ -f /tmp/brief_areas.json ]; then python engine/scripts/brief.py fetch --out /tmp/fresh --areas /tmp/brief_areas.json; else echo "구독 동네 없음 → 기본 동네만 다시 받음"; fi
+          python3 - <<'PY'
+          import json, os
+          codes = (json.load(open(os.path.join(os.environ['JDJ_DATA'], 'sgg_codes.json'))).get('codes') or {})
+          sub = set()
+          if os.path.exists('/tmp/brief_areas.json'):
+              sub = {str(a.get('g') if isinstance(a, dict) else a) for a in (json.load(open('/tmp/brief_areas.json')).get('areas') or [])}
+          want = set()
+          for d in [x.strip() for x in os.environ.get('BRIEF_DEFAULT', '11').split(',') if x.strip()]:
+              want.update(g for g in codes if g == d or (len(d) == 2 and g.startswith(d)))
+          want -= sub
+          json.dump({'areas': [{'g': g} for g in sorted(want)]}, open('/tmp/default_areas.json', 'w'))
+          print('기본 동네 다시 받기', len(want), '곳')
+          PY
+          python engine/scripts/brief.py fetch --out /tmp/fresh --areas /tmp/default_areas.json
       - name: 새 정책·교통·공급 발표 모으기 (공식 보도자료 목록 — 국토부·정책브리핑 부처·금융위·서울시·인천시)
         # 실패해도 브리핑은 그대로 만듦(새 발표 칸만 빠짐). 결과: 비공개 엔진 data/brief/policy_news.json(여러 날 중복 제거용, 아래 저장 단계가 커밋)
         continue-on-error: true
