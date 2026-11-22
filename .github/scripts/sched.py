@@ -25,6 +25,7 @@ WF = {
     'brief':          dict(file='brief.yml',          primary='05:07', backups=['05:27', '05:52', '06:37'], due='05:40', since='00:00'),
     'weekly_release': dict(file='weekly_release.yml', primary='07:00', backups=['07:20', '07:45', '08:30'], due='07:30', since='07:00', dow=1),
     'seo':            dict(file='seo.yml',            primary='07:37', backups=['07:57', '08:22', '09:07'], due='08:05', since='00:00'),
+    'report':         dict(file='report.yml',         primary='07:52', backups=['08:12', '08:37', '09:22'], due='08:25', since='07:00', dow=1),
     'facility':       dict(file='facility.yml',       primary='02:37', backups=['02:57', '03:22', '04:07'], due='05:00', since='half'),
 }
 ACTIVE = {'queued', 'in_progress', 'waiting', 'requested', 'pending'}
@@ -117,10 +118,11 @@ def cmd_guard(name):
 
 # ---------- watchdog ----------
 def output_check(name, today):
-    """공개 결과물로 한 번 더 확인(있는 것만) — 모닝 브리핑: 공개 저장소 data/brief/market.json 의 date 가 오늘인지"""
-    if name != 'brief': return None
+    """공개 결과물로 한 번 더 확인(있는 것만) — 모닝 브리핑: 공개 저장소 data/brief/market.json, 내 집 성적표: data/report/index.json 의 date 가 오늘인지"""
+    path = {'brief': 'data/brief/market.json', 'report': 'data/report/index.json'}.get(name)
+    if not path: return None
     try:
-        req = urllib.request.Request('https://raw.githubusercontent.com/chrisjangdaejang-ux/jangdaejang-data/gh-pages/data/brief/market.json',
+        req = urllib.request.Request('https://raw.githubusercontent.com/chrisjangdaejang-ux/jangdaejang-data/gh-pages/' + path,
                                      headers={'Cache-Control': 'no-cache'})
         with urllib.request.urlopen(req, timeout=30) as r: d = json.loads(r.read()).get('date')
         return {'date': d, 'ok': d == today.isoformat()}
@@ -229,8 +231,8 @@ def cmd_watchdog(dry=False):
             lines.append(f'- {name}: 이미 끝남(already done) · {o["status"]} by {o["by"]} {o["at"]}' + (f' · 공개 결과 date={oc.get("date")}' if oc else ''))
         else:
             lines.append(f'- {name}: {o["status"]}')
-        if name == 'brief' and oc and oc.get('ok') is False and o['status'] in ('succeeded', 'recovered'):
-            lines.append(f'  ::warning::브리핑 실행은 성공했지만 공개 market.json date={oc.get("date")} (오늘 {today})')
+        if name in ('brief', 'report') and oc and oc.get('ok') is False and o['status'] in ('succeeded', 'recovered'):
+            lines.append(f'  ::warning::{name} 실행은 성공했지만 공개 결과 date={oc.get("date")} (오늘 {today})')
         rep['wf'][name] = o
     try:
         wd = [r for r in runs_since('watchdog.yml', at(today, '00:00')) if r['event'] == 'schedule']
