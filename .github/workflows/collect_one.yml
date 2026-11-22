@@ -54,7 +54,7 @@ jobs:
         run: |
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
           case "$KIND" in trade) P="data/raw data/manifest.json";; rent) P="data/rent data/manifest_rent.json";; villa) P="data/villa data/manifest_villa.json";; *) P="data/$KIND data/manifest_$KIND.json";; esac
-          git add $P data/collect_status.json data/source_status 2>/dev/null || true
+          for x in $P data/collect_status.json data/source_status; do [ -e "$x" ] && git add -A "$x"; done   # 없는 경로가 하나라도 있으면 git add 전체가 실패하던 문제
           git diff --cached --quiet && { echo "바뀐 것 없음"; exit 0; }
           git commit -qm "실거래 수집($KIND) $(TZ=Asia/Seoul date +%F)"
           for i in 1 2 3 4 5; do
