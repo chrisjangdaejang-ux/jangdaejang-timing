@@ -1,0 +1,1 @@
+{"k":"site_qa","label":"사이트 화면 자동 점검(휴대폰·PC 여정)","status":"ok","reason":"","at":"2026-11-23T11:16","every_h":24,"sha":"5d7754057f1d","unit":{"n":66,"fail":[]},"e2e":{"pass":895,"fail":0,"seconds":373},"fails":[],"last_ok":"2026-11-23T11:16"}
