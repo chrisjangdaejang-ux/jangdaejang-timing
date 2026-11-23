@@ -1,5 +1,6 @@
-name: 살아보니 거르기 설정 넣기 (매일 + 엔진 설정을 바꿨을 때 직접 실행)
-# 비공개 엔진 data/community/rules.json(집값 담합·광고·욕설·개인정보 거르기, 스팸 점수, 횟수 제한, 문 열기)을
+name: 살아보니·동네 파트너 거르기 설정 넣기 (매일 + 엔진 설정을 바꿨을 때 직접 실행)
+# 비공개 엔진 data/community/rules.json(집값 담합·광고·욕설·개인정보 거르기, 스팸 점수, 횟수 제한, 문 열기)과
+# data/dongne/rules.json(동네 파트너 한마디: 가격 예측·담합·매물 홍보·욕설·비방)을
 # 서버(Apps Script cmRulesPut, BRIEF_PULL_TOKEN)의 스크립트 속성에 넣는다. 값은 공개 저장소·실행 기록에 남기지 않고 개수만 찍는다.
 # 서버가 아직 이 기능을 모르면(재배포 전) 건너뛰고 성공으로 끝난다. 설정이 없으면 서버는 모든 글을 '검토대기'로 둔다.
 on:
@@ -24,7 +25,7 @@ jobs:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
         run: |
           git clone -q --depth 1 --filter=blob:none --sparse "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine
-          cd engine && git sparse-checkout set --no-cone /scripts/community_rules.py /data/community/
+          cd engine && git sparse-checkout set --no-cone /scripts/community_rules.py /scripts/dongne_rules.py /data/community/ /data/dongne/
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -34,3 +35,4 @@ jobs:
         run: |
           pip install -q requests
           python engine/scripts/community_rules.py push
+          python engine/scripts/dongne_rules.py push
