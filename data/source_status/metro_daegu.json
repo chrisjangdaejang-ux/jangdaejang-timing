@@ -1,1 +1,1 @@
-{"k":"metro_daegu","status":"failed","reason":"HTTPSConnectionPool(host='www.daegu.go.kr', port=443): Max retries exceeded with url: /build/index.d","at":"2026-11-23T12:48","wf":"실거래 수집 및 사이트 갱신","run":"45084360441","every_h":168,"label":"대구 정비사업 추진현황(파일)","screens":"대구 재개발 단계"}
+{"k":"metro_daegu","status":"failed","reason":"HTTPSConnectionPool(host='www.daegu.go.kr', port=443): Max retries exceeded with url: /build/index.d","at":"2026-11-23T21:07","wf":"실거래 수집 및 사이트 갱신","run":"45133791579","every_h":168,"label":"대구 정비사업 추진현황(파일)","screens":"대구 재개발 단계"}
