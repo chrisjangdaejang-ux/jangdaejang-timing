@@ -1,1 +1,1 @@
-{"k":"seoul_sangkwon","status":"failed","reason":"HTTPConnectionPool(host='openapi.seoul.go.kr', port=8088): Max retries exceeded with url: /4c514e464a636872373064547a754","at":"2026-11-23T03:19","wf":"실거래 수집 및 사이트 갱신","run":"45034094841","every_h":6,"label":"서울 상권분석(열린데이터)","screens":"상가·건물 탭 서울 매출·점포","last_ok":"2026-11-22T17:37"}
+{"k":"seoul_sangkwon","status":"ok","reason":"","at":"2026-11-23T11:33","wf":"실거래 수집 및 사이트 갱신","run":"45084360441","every_h":6,"label":"서울 상권분석(열린데이터)","screens":"상가·건물 탭 서울 매출·점포","last_ok":"2026-11-23T11:33"}
