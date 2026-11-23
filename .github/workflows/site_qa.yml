@@ -1,0 +1,105 @@
+name: 사이트 화면 자동 점검 (매일 + 사이트가 바뀔 때마다)
+# 집코드 사이트(jangdaejang-calc)를 휴대폰(390×844)·PC(1280×800)로 사람이 누르는 순서대로 점검한다.
+#  · 점검 내용: jangdaejang-calc 의 tools/*-test.js(계산·문구) + tools/e2e/run.js(화면 여정, 가짜 서버 + 실제 공개 데이터). 항목: docs/qa_checklist.md
+#  · 언제: 매일 04:47 KST 한 번(09:07 보고 전에 끝나게) + 매시 17분에 사이트 저장소의 마지막 커밋을 보고, 아직 점검하지 않은 커밋이면 바로 점검
+#    (사이트 저장소에는 Actions 가 없어 이쪽에서 '푸시 뒤 점검'을 대신함 — 푸시 뒤 늦어도 약 1시간 안)
+#  · 결과: data/source_status/site_qa.json(자료 원천 상태와 같은 모양) → 감시(watchdog.yml)가 그날 기록 sources.problems 에 실패를 한 줄로 넣어
+#    대표 09:07 보고에 보임. 자세한 실패 목록과 화면 사진은 실행 결과(Artifacts)의 site-qa 에.
+on:
+  schedule:
+    - cron: '47 19 * * *'     # 한국 시각 04:47 — 하루 한 번 전부 점검
+    - cron: '17 * * * *'      # 매시 — 새 커밋이 있을 때만 점검
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'true 면 새 커밋이 없어도 점검'
+        default: 'true'
+permissions:
+  contents: write
+concurrency:
+  group: site-qa
+  cancel-in-progress: false
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/source_status/site_qa.json
+      - name: 사이트 저장소 받기
+        run: git clone -q --depth 1 https://github.com/chrisjangdaejang-ux/jangdaejang-calc.git /tmp/calc
+      - name: 점검할지 정하기 (매일 1번 · 새 커밋 · 수동)
+        id: need
+        run: |
+          SHA=$(git -C /tmp/calc rev-parse HEAD | cut -c1-12)
+          PREV=$(python3 -c "import json;print(json.load(open('data/source_status/site_qa.json')).get('sha',''))" 2>/dev/null || true)
+          LAST=$(python3 -c "import json;print(json.load(open('data/source_status/site_qa.json')).get('at','')[:10])" 2>/dev/null || true)
+          TODAY=$(TZ=Asia/Seoul date +%F)
+          RUN=false
+          if [ "${{ github.event_name }}" = workflow_dispatch ] && [ "${{ github.event.inputs.force }}" != false ]; then RUN=true; fi
+          if [ "$SHA" != "$PREV" ]; then RUN=true; fi
+          if [ "$LAST" != "$TODAY" ] && [ "${{ github.event.schedule }}" = '47 19 * * *' ]; then RUN=true; fi
+          echo "사이트 커밋 $SHA · 지난 점검 $PREV ($LAST) → 점검 $RUN"
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.need.outputs.run == 'true'
+        with:
+          node-version: '22'
+      - name: Playwright(크롬) 설치
+        if: steps.need.outputs.run == 'true'
+        working-directory: /tmp/calc
+        run: |
+          npm i --no-save --no-audit --no-fund playwright@1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: 점검 (계산·문구 검사 + 화면 여정)
+        if: steps.need.outputs.run == 'true'
+        id: qa
+        continue-on-error: true
+        working-directory: /tmp/calc
+        env:
+          DATA_ORIGIN: https://chrisjangdaejang-ux.github.io/jangdaejang-data/
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/data/source_status"
+          node tools/e2e/ci.js "$GITHUB_WORKSPACE/data/source_status/site_qa.json" </dev/null
+      - name: 결과 요약
+        if: steps.need.outputs.run == 'true'
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          j = json.load(open('data/source_status/site_qa.json'))
+          print(f"## 사이트 화면 자동 점검: {'통과' if j['status'] == 'ok' else '문제 있음'} ({j['at']} KST, 커밋 {j.get('sha')})")
+          if j.get('reason'): print('\n' + j['reason'])
+          for f in j.get('fails', [])[:40]: print('- ' + f)
+          for f in (j.get('unit') or {}).get('fail', []): print('- ' + f)
+          PY
+      - name: 실패 화면 사진·결과 올리기
+        if: steps.need.outputs.run == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-qa
+          path: /tmp/calc/tools/e2e/out/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: 기록 (data/source_status/site_qa.json → 감시가 09:07 보고에 모음)
+        if: steps.need.outputs.run == 'true'
+        run: |
+          cp data/source_status/site_qa.json /tmp/site_qa.json
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          for i in 1 2 3 4 5; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            mkdir -p data/source_status && cp /tmp/site_qa.json data/source_status/site_qa.json
+            git add data/source_status/site_qa.json
+            git diff --cached --quiet && { echo "바뀐 것 없음"; exit 0; }
+            git commit -qm "사이트 화면 자동 점검 $(TZ=Asia/Seoul date '+%F %H:%M')"
+            git push -q origin HEAD:main && { echo "기록함"; exit 0; }
+            sleep $((i * 7))
+          done
+          echo "::warning::기록을 올리지 못함"
+      - name: 문제가 있으면 이 실행을 실패로 표시
+        if: steps.qa.outcome == 'failure'
+        run: |
+          echo "::error::사이트 화면 점검에서 문제가 나왔어요 — data/source_status/site_qa.json 의 reason·fails, 그리고 Artifacts 의 site-qa"
+          exit 1
