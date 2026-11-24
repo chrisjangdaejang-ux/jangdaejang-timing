@@ -1,1 +1,1 @@
-{"status":"error","cursor":2235,"url":"https://apis.data.go.kr/1613000/ArchPmsHubService/getApBasisOulnInfo","at":"2026-11-24","calls":2,"codes":2730,"dates":"on","dong":"ok","hstp":"ok"}
+{"status":"ok","cursor":2684,"url":"https://apis.data.go.kr/1613000/ArchPmsHubService/getApBasisOulnInfo","at":"2026-11-25","calls":800,"codes":2730,"dates":"on","dong":"ok","hstp":"ok"}
