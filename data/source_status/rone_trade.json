@@ -1,1 +1,1 @@
-{"k":"rone_trade","status":"partial","reason":"[('age', 'TIME')]","at":"2026-11-23T19:47","wf":"실거래 수집 및 사이트 갱신","run":"45133791579","every_h":6,"label":"부동산원 매입자 거주지·연령대(R-ONE)","screens":"지역 분석 외지인·연령대 매수","last_ok":"2026-11-23T03:14"}
+{"k":"rone_trade","status":"partial","reason":"[('age', 'TIME')]","at":"2026-11-24T08:47","wf":"실거래 수집 및 사이트 갱신","run":"45270949615","every_h":6,"label":"부동산원 매입자 거주지·연령대(R-ONE)","screens":"지역 분석 외지인·연령대 매수","last_ok":"2026-11-23T03:14"}
