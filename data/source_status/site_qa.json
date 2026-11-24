@@ -1,1 +1,1 @@
-{"k":"site_qa","label":"사이트 화면 자동 점검(휴대폰·PC 여정)","status":"ok","reason":"","at":"2026-11-23T20:00","every_h":24,"sha":"a02dabc55513","unit":{"n":67,"fail":[]},"e2e":{"pass":977,"fail":0,"seconds":429},"fails":[],"last_ok":"2026-11-23T20:00"}
+{"k":"site_qa","label":"사이트 화면 자동 점검(휴대폰·PC 여정)","status":"ok","reason":"","at":"2026-11-24T13:40","every_h":24,"sha":"a02dabc55513","unit":{"n":67,"fail":[]},"e2e":{"pass":977,"fail":0,"seconds":418},"fails":[],"last_ok":"2026-11-24T13:40"}
