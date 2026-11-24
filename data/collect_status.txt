@@ -5,6 +5,6 @@
 2026-11-24 sh_rent done=2389 left=20087 calls=2400 from=201708 target=201101 missing=20087 eta=2026-11-27
 2026-11-24 offi_rent done=2399 left=19871 calls=2400 from=201707 target=201101 missing=19871 eta=2026-11-27
 2026-11-24 offi_trade done=2399 left=19813 calls=2400 from=201707 target=201101 missing=19813 eta=2026-11-27
-2026-11-24 nrg_trade done=2398 left=22605 calls=2400 from=201901 target=201101 missing=22605 eta=2026-11-27
+2026-11-24 nrg_trade done=2399 left=22604 calls=2400 from=201806 target=201101 missing=22604 eta=2026-11-27
 2026-11-24 land_trade done=2321 left=44710 calls=2400 from=202008 target=200601 missing=44710 eta=2026-11-29
 2026-11-24 sh_trade done=2399 left=22604 calls=2400 from=201806 target=201101 missing=22604 eta=2026-11-27
