@@ -246,6 +246,16 @@ jobs:
         run: |
           python scripts/build_site.py > /tmp/build.log 2>&1 && echo "사이트 데이터 생성 완료" || { echo "사이트 데이터 생성 실패 — 비공개 저장소 logs/build.log 확인"; exit 1; }
 
+      - name: 깡통전세 확률 (월 1회 — 자료 끝 달이 바뀐 첫 실행만 다시 계산, 나머지는 비공개 engine/data/kkang/kk_pub.json 재사용 → site/data/rent/kk.json, 세부는 비공개 저장소 logs/kkang.log)
+        # 사이트 데이터 생성(rent/ 를 새로 만듦) 뒤에 둬야 함. 공개 파일은 아래 '공개 자료 검사'(public_guard)를 거쳐 내보냄. 실패하면 직전 공개본 그대로
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          KK_PRIV: ${{ github.workspace }}/engine/data/kkang
+        run: |
+          python scripts/kkang.py all site/data > /tmp/kkang.log 2>&1 && echo "깡통전세 확률 단계 끝" \
+            || { echo "깡통전세 확률 건너뜀 — logs/kkang.log 확인(직전 공개본 유지)"; [ -f /tmp/prev/data/rent/kk.json ] && mkdir -p site/data/rent && cp /tmp/prev/data/rent/kk.json site/data/rent/kk.json || true; }
+
       - name: 단지 이름 별칭 (실거래 이름·K-apt 공식 이름·도로명 주소·옛 이름 → 시세 목록 price/sNN.json 별칭 칸, 목록 밖 K-apt 단지 → site/data/alias/)
         # 검색창에서 '청담 e편한세상 4차'·'청담대림' 처럼 실거래 이름과 다르게 쳐도 찾게. 실패하면 별칭 없이 그대로(검색은 이름 규칙만으로 동작)
         continue-on-error: true
