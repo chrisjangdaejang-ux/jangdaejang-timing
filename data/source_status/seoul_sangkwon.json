@@ -1,1 +1,1 @@
-{"k":"seoul_sangkwon","status":"failed","reason":"Expecting value: line 1 column 1 (char 0)","at":"2026-11-25T10:00","wf":"실거래 수집 및 사이트 갱신","run":"45501820427","every_h":6,"label":"서울 상권분석(열린데이터)","screens":"상가·건물 탭 서울 매출·점포","last_ok":"2026-11-25T01:08"}
+{"k":"seoul_sangkwon","status":"ok","reason":"","at":"2026-11-25T19:49","wf":"실거래 수집 및 사이트 갱신","run":"45574832713","every_h":6,"label":"서울 상권분석(열린데이터)","screens":"상가·건물 탭 서울 매출·점포","last_ok":"2026-11-25T19:49"}

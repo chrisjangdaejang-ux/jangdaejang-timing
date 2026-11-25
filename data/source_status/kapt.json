@@ -1,1 +1,1 @@
-{"k":"kapt","status":"partial","reason":"호출 예산 소진","at":"2026-11-25T09:19","wf":"실거래 수집 및 사이트 갱신","run":"45501820427","every_h":6,"label":"공동주택 단지 기본정보(K-apt)","screens":"단지 세대수·사용승인일·주차","calls":1200,"have":13218}
+{"k":"kapt","status":"quota","reason":"HTTP 429: {\n  \"OpenAPI_ServiceResponse\": {\n    \"cmmMsgHeader\": {\n      \"errMsg\": \"LIMITED_NUMBER_OF_","at":"2026-11-25T18:50","wf":"실거래 수집 및 사이트 갱신","run":"45574832713","every_h":6,"label":"공동주택 단지 기본정보(K-apt)","screens":"단지 세대수·사용승인일·주차","calls":880,"have":13811}
