@@ -1,0 +1,85 @@
+name: 예측 맞히기 문제·정답 (매일 아침 + 목요일 저녁)
+# 엔진 scripts/predict_quiz.py — 공개 자료로 '예측 맞히기' 주간 문제를 만들고, 결과 자료가 나오면 정답을 정한다(돈·상품 없음, 포인트 채점은 Apps Script v54).
+#  · 한국부동산원 주간 아파트 매매가격지수(R-ONE, REB_KEY): 목·금·토에만 다시 받음(목요일 오후 발표) → 비공개 엔진 data/weekly/rone_ws.json(주간 동향과 같은 파일)
+#  · 단지 대결(월간): 국토교통부 실거래 원자료 중 문제 단지가 있는 구만 받음. 청약 경쟁률: 공개 data/chungyak/notices.json·rates.json
+#  · 비공개 기록 engine/data/quiz/ledger.json(모든 문제·정답·근거) → 공개 jangdaejang-data data/quiz/week.json·log.json(감사 기록)
+#  · 같은 날 여러 번 돌아도 결과가 같다(이미 만든 문제·정한 정답은 그대로). 실패하면 직전 공개본 그대로.
+on:
+  schedule:
+    - cron: '13 22 * * *'     # 한국 시각 매일 07:13
+    - cron: '13 8 * * 4'      # 목요일 17:13 (부동산원 주간 발표 뒤 — 정답을 빨리)
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: weekly                # 주간 실거래 동향(weekly.yml)과 같은 rone_ws.json 을 쓰므로 차례로
+  cancel-in-progress: false
+jobs:
+  quiz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: 수집 원자료 일부만 받기 (문제 단지가 있는 구 · 시군구 코드)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            data/raw/11680/
+            data/raw/11710/
+            data/raw/11650/
+            data/raw/11200/
+            data/sgg_codes.json
+      - name: 엔진 불러오기 (비공개 저장소)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          for i in 1 2 3; do git clone -q --depth 1 "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-engine.git" engine && break; sleep 15; done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q requests certifi
+      - name: 부동산원 주간 지수 (목·금·토만)
+        continue-on-error: true
+        timeout-minutes: 12
+        env:
+          REB_KEY: ${{ secrets.REB_KEY }}
+          JDJ_DATA: ${{ github.workspace }}/data
+        run: |
+          D=$(TZ=Asia/Seoul date +%u)
+          if [ "$D" = "4" ] || [ "$D" = "5" ] || [ "$D" = "6" ] || [ ! -f engine/data/weekly/rone_ws.json ]; then
+            mkdir -p engine/data/weekly && python engine/scripts/rone.py weekly --out engine/data/weekly/rone_ws.json || echo "부동산원 주간 지수 건너뜀(받아 둔 자료로)"
+          else echo "오늘은 받지 않음(받아 둔 자료로)"; fi
+      - name: 공개 청약 자료 받기 (공고·경쟁률)
+        run: |
+          rm -rf /tmp/pub && git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages https://github.com/chrisjangdaejang-ux/jangdaejang-data.git /tmp/pub
+          git -C /tmp/pub sparse-checkout set --no-cone /data/chungyak/notices.json /data/chungyak/rates.json
+      - name: 문제 만들기·정답 정하기
+        run: |
+          mkdir -p /tmp/qz
+          python engine/scripts/predict_quiz.py build --site /tmp/qz --rone engine/data/weekly/rone_ws.json --raw data/raw \
+            --notices /tmp/pub/data/chungyak/notices.json --rates /tmp/pub/data/chungyak/rates.json --ledger engine/data/quiz/ledger.json | tee /tmp/quiz.log
+      - name: 기록 저장 (비공개 엔진 data/quiz · 부동산원 주간 지수)
+        run: |
+          cd engine
+          mkdir -p logs && cp /tmp/quiz.log logs/quiz.log
+          git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
+          git add data/quiz logs/quiz.log data/weekly/rone_ws.json 2>/dev/null || git add data/quiz logs/quiz.log
+          git diff --cached --quiet || git commit -qm "예측 맞히기 $(TZ=Asia/Seoul date +%F)"
+          for i in 1 2 3 4; do git pull -q --rebase -X theirs && git push -q && break; sleep 10; done
+      - name: 공개 저장소로 내보내기 (data/quiz)
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          python engine/scripts/public_guard.py /tmp/qz/quiz --models engine/data || { echo "공개 자료 검사 실패 → 올리지 않음"; exit 1; }
+          for i in 1 2 3 4; do
+            rm -rf /tmp/qpub
+            git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" /tmp/qpub
+            cd /tmp/qpub && git sparse-checkout set --no-cone /data/quiz/
+            mkdir -p data/quiz && cp /tmp/qz/quiz/*.json data/quiz/ && git add -A data/quiz
+            git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "예측 맞히기 $(TZ=Asia/Seoul date +%F)" || { echo "바뀐 것 없음"; exit 0; }
+            git push -q && { echo "공개 저장소로 내보냄"; exit 0; }
+            cd - > /dev/null; sleep 20
+          done
+          exit 1
