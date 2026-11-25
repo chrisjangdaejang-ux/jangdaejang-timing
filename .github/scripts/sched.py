@@ -25,7 +25,7 @@ WF = {
     'brief':          dict(file='brief.yml',          primary='05:07', backups=['05:27', '05:52', '06:37'], due='05:40', since='00:00'),
     'weekly_release': dict(file='weekly_release.yml', primary='07:00', backups=['07:20', '07:45', '08:30'], due='07:30', since='07:00', dow=1),
     'seo':            dict(file='seo.yml',            primary='07:37', backups=['07:57', '08:22', '09:07'], due='08:05', since='00:00'),
-    'report':         dict(file='report.yml',         primary='07:52', backups=['08:12', '08:37', '09:22'], due='08:25', since='07:00', dow=1),
+    'report':         dict(file='report.yml',         primary='05:40', backups=['06:05', '06:30', '07:52', '09:22'], due='07:30', since='05:00', dow=1),   # 7시 전 판은 07:00 발표 때 공개
     'facility':       dict(file='facility.yml',       primary='02:37', backups=['02:57', '03:22', '04:07'], due='05:00', since='half'),
 }
 # 몇 시간마다 도는 워크플로 — 최근 every_h + grace_h 시간 안에 시작된 실행(성공·도는 중·실패 모두)이 하나도 없으면 감시가 다시 실행(하루 최대 MAX_DISPATCH번).

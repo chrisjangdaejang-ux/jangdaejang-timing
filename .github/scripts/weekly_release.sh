@@ -28,7 +28,7 @@ PY
 for i in 1 2 3 4; do
   rm -rf "$PUB"
   git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages "https://x-access-token:${PUBLISH_TOKEN}@github.com/chrisjangdaejang-ux/jangdaejang-data.git" "$PUB"
-  git -C "$PUB" sparse-checkout set --no-cone /data/weekly/ /data/brief/wk/
+  git -C "$PUB" sparse-checkout set --no-cone /data/weekly/ /data/brief/wk/ /data/report/
   python3 "$ENGINE/scripts/weekly.py" publish --site "$PUB/data" --now "$NOW"
   python3 - "$ENGINE/data/weekly/brief_wk" "$PUB/data/brief/wk" "$NOW" <<'PY'
 import sys, os, json, glob, shutil
@@ -42,8 +42,19 @@ shutil.rmtree(dst, ignore_errors=True); os.makedirs(dst)
 for f in fs: shutil.copy(f, dst)
 print(f'브리핑 주간 칸 {len(fs)}개 공개')
 PY
+  # 내 집 성적표: 7시 전에 미리 만든 오늘 판(엔진 data/report_next, report.yml 05:40)이 있으면 주간 동향과 같은 커밋으로 공개
+  python3 - "$ENGINE/data/report_next" "$PUB/data/report" "$NOW" <<'PY'
+import sys, os, json, shutil
+src, dst, now = sys.argv[1:4]
+ix = os.path.join(src, 'index.json')
+try: d = json.load(open(ix, encoding='utf-8')).get('date')
+except Exception: d = None
+if d != now[:10] or now[11:16] < '07:00': print(f'미리 만든 성적표 없음·발표 전(판 {d}) → 그대로'); raise SystemExit
+shutil.rmtree(dst, ignore_errors=True); shutil.copytree(src, dst)
+print(f'내 집 성적표 {d} 판 공개')
+PY
   cd "$PUB"
-  for p in data/weekly data/brief/wk; do if [ -e "$p" ]; then git add -A "$p"; fi; done
+  for p in data/weekly data/brief/wk data/report; do if [ -e "$p" ]; then git add -A "$p"; fi; done
   if [ "$(git diff --cached --name-only)" = "data/weekly/index.json" ] && python3 - <<'PY'
 import json, subprocess
 a = json.loads(subprocess.run(['git', 'show', 'HEAD:data/weekly/index.json'], capture_output=True, text=True, check=True).stdout)
