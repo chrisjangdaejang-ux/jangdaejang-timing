@@ -107,7 +107,8 @@ jobs:
           MAX_MINUTES: ${{ vars.EXTRA_RENT_MAX_MINUTES || '15' }}
           WORKERS: '4'
         run: |
-          for k in rh_rent offi_rent offi_trade sh_rent nrg_trade sh_trade; do KIND=$k python scripts/collect.py || echo "$k 수집 건너뜀"; done
+          # silv_trade: 아파트 분양권·입주권 실거래(15126471) — 활용신청 승인 전엔 시험 호출 1번 후 건너뜀(상태 data/source_status/silv_trade.json)
+          for k in rh_rent offi_rent offi_trade sh_rent nrg_trade sh_trade silv_trade; do KIND=$k python scripts/collect.py || echo "$k 수집 건너뜀"; done
 
       - name: 토지 매매 수집 (2006-01부터 과거 채우기, 별도 API 한도 — 운영계정 하루 9,500회까지)
         # 위 단계가 시간 한도에 걸려도 따로 돌도록 단계를 나눔. 다른 자료와 한도를 나눠 쓰지 않음(API별 한도)
@@ -299,6 +300,10 @@ jobs:
       - name: 재개발·빌라 데이터 생성 (세부 결과는 비공개 저장소 logs/villa.log에만 기록)
         continue-on-error: true
         run: python scripts/villa.py > /tmp/villa.log 2>&1 && echo "빌라 데이터 생성 완료" || echo "빌라 데이터 생성 건너뜀"
+
+      - name: 재개발 구역 상세 자료 (구역마다 한 파일 + 목록 → site/data/redev/zone/ — 서울·소규모·서울 밖, 사업정보·고시·권리산정기준일·입주권, 값마다 출처·기준일)
+        continue-on-error: true
+        run: python scripts/redev_detail.py site/data 2>&1 | tee /tmp/redev_detail.log | grep -E '^\[(redev-detail|source)\]' || echo "구역 상세 자료 건너뜀(직전 공개본 유지)"
 
       - name: 오피스텔·빌라·상가 건물 위치 넣기 (행정안전부 주소정보 좌표 — bldxy.yml 이 받아 둔 비공개 data/bldxy.json → 공개 파일엔 소수 셋째 자리만)
         continue-on-error: true

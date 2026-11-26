@@ -1,8 +1,10 @@
-name: 정비사업 현황 받기 (매주)
+name: 정비사업 현황 받기 (매일 — 서울 파일·서울플랜+·전국·부산·인천·대구·토지이음 고시목록)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '37 17 * * 0'
+    # 2026-11-26 매주 → 매일. 원천 갱신 주기는 서울 파일·서울플랜+ 분기, 부산 API 수시, 전국 통합·토지이음 고시목록 연 1회 —
+    # 매일 확인해 원천이 바뀐 날 바로 반영(호출 수: 서울 열린데이터 약 15번, 공공데이터포털 파일 몇 개, 부산 API 1~5번 — 한도 안)
+    - cron: '37 17 * * *'
 permissions:
   contents: write
 jobs:
@@ -19,7 +21,7 @@ jobs:
           cp engine/data/*.json data/
           echo "엔진 불러옴"
       - run: pip install requests
-      - run: pip install openpyxl
+      - run: pip install openpyxl xlrd
       - continue-on-error: true
         run: python scripts/seoul_rebuild.py
       - continue-on-error: true
@@ -30,6 +32,14 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
         run: python scripts/rebuild_other.py
+      - name: 광역시 정비사업 추진현황 (인천·대구 파일 — 받은 지 7일 안이면 건너뜀, 대구는 게시판 첨부를 따라감)
+        continue-on-error: true
+        run: python scripts/rebuild_metro.py > /tmp/rebuild_metro.log 2>&1 && echo "광역시 정비사업 단계 끝(세부는 비공개 저장소 logs/rebuild_metro.log)" || echo "광역시 정비사업 실패 — logs/rebuild_metro.log 확인"
+      - name: 정비사업 고시·공고 (토지이음 고시목록 파일, 30일마다 확인) + 누리집 robots.txt 확인(수집 안 함)
+        continue-on-error: true
+        run: |
+          python scripts/gosi.py > /tmp/gosi.log 2>&1 && echo "고시 목록 단계 끝(세부는 비공개 저장소 logs/gosi.log)" || echo "고시 목록 실패 — logs/gosi.log 확인"
+          python scripts/gosi.py robots >> /tmp/gosi.log 2>&1 || true
       - run: python scripts/rebuild_stage.py > /tmp/rebuild_stage.log 2>&1
       - name: 엔진 데이터 저장 (비공개 저장소)
         if: always()
@@ -45,7 +55,8 @@ jobs:
           git push -q || true
       - run: |
           git config user.name "jangdaejang-bot"; git config user.email "actions@users.noreply.github.com"
-          git add data/seoul_rebuild.xlsx data/seoul_rebuild.src.txt data/seoul_api.json data/rebuild_other.json || true
+          git add data/seoul_rebuild.xlsx data/seoul_rebuild.src.txt data/seoul_api.json data/rebuild_other.json data/rebuild_metro.json || true
+          [ -f data/gosi.json ] && git add data/gosi.json || true
           git add -A data/source_status 2>/dev/null || true   # 자료 원천 상태(감시가 모아 09:07 보고)
           git diff --cached --quiet || git commit -m "서울 정비사업 현황 $(date -u +%F)"
           git pull --rebase -X theirs origin main || true
