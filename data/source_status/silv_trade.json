@@ -1,1 +1,1 @@
-{"k":"silv_trade","status":"failed","reason":"HTTPSConnectionPool(host='apis.data.go.kr', port=443): Max retries exceeded with url: /1613000/RTMSDataSvcSilvTrade/getR","at":"2026-11-26T22:46","wf":"실거래 한 종류만 바로 수집 (수동)","run":"45832150121","every_h":6,"label":"아파트 분양권·입주권 실거래(국토부)","screens":"재개발 구역 상세 입주권 거래"}
+{"k":"silv_trade","status":"ok","reason":"","at":"2026-11-26T22:58","wf":"실거래 한 종류만 바로 수집 (수동)","run":"45832744750","every_h":6,"label":"아파트 분양권·입주권 실거래(국토부)","screens":"재개발 구역 상세 입주권 거래","calls":2400,"done":2399,"left":21921,"last_ok":"2026-11-26T22:58"}
