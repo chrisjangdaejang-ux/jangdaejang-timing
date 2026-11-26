@@ -1,1 +1,1 @@
-{"k":"hub_archpms","status":"failed","reason":"error","at":"2026-11-26T11:11","wf":"실거래 수집 및 사이트 갱신","run":"45707354625","every_h":6,"label":"건축인허가 기본개요(건축HUB)","screens":"지도 신축 현장 레이어","calls":9,"last_ok":"2026-11-26T07:23"}
+{"k":"hub_archpms","status":"ok","reason":"","at":"2026-11-26T20:22","wf":"실거래 수집 및 사이트 갱신","run":"45779869817","every_h":6,"label":"건축인허가 기본개요(건축HUB)","screens":"지도 신축 현장 레이어","calls":800,"last_ok":"2026-11-26T20:22"}
