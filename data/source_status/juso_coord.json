@@ -1,1 +1,1 @@
-{"k":"juso_coord","status":"notRegistered","reason":"좌표제공 API 승인키(JUSO_COORD_KEY) 없음 — 주소정보누리집 API 신청 필요","at":"2026-11-26T17:52","wf":"건물 위치 받기 (오피스텔·빌라·상가 — 행정안전부 주소정보)","run":"45786774820","every_h":6,"label":"행정안전부 주소정보 건물DB·좌표제공 API","screens":"오피스텔·빌라·상가 건물 지도 위치","wait":149477}
+{"k":"juso_coord","status":"notRegistered","reason":"좌표제공 API 승인키(JUSO_COORD_KEY) 없음 — 주소정보누리집 API 신청 필요","at":"2026-11-27T06:54","wf":"건물 위치 받기 (오피스텔·빌라·상가 — 행정안전부 주소정보)","run":"45901185258","every_h":6,"label":"행정안전부 주소정보 건물DB·좌표제공 API","screens":"오피스텔·빌라·상가 건물 지도 위치","wait":149477}
