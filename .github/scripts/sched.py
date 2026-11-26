@@ -25,7 +25,7 @@ WF = {
     'brief':          dict(file='brief.yml',          primary='05:07', backups=['05:27', '05:52', '06:37'], due='05:40', since='00:00'),
     'weekly_release': dict(file='weekly_release.yml', primary='07:00', backups=['07:20', '07:45', '08:30'], due='07:30', since='07:00', dow=1),
     'seo':            dict(file='seo.yml',            primary='07:37', backups=['07:57', '08:22', '09:07'], due='08:05', since='00:00'),
-    'report':         dict(file='report.yml',         primary='05:40', backups=['06:05', '06:30', '07:52', '09:22'], due='07:30', since='05:00', dow=1),   # 7시 전 판은 07:00 발표 때 공개
+    'report':         dict(file='report.yml',         primary='05:40', backups=['06:05', '06:30', '07:52', '09:22', '10:52', '12:52'], due='07:30', since='05:00', dow=1),   # 7시 전 판은 07:00 발표 때 공개 · 10:52·12:52 = 주간 동향이 늦게 발표된 날 '이번 주 가격 흐름' 채우기
     'facility':       dict(file='facility.yml',       primary='02:37', backups=['02:57', '03:22', '04:07'], due='05:00', since='half'),
 }
 # 몇 시간마다 도는 워크플로 — 최근 every_h + grace_h 시간 안에 시작된 실행(성공·도는 중·실패 모두)이 하나도 없으면 감시가 다시 실행(하루 최대 MAX_DISPATCH번).
@@ -105,6 +105,25 @@ def summary(md):
         with open(p, 'a') as f: f.write(md + '\n')
 
 
+def pub_json(path):
+    req = urllib.request.Request(PUB + path, headers={'Cache-Control': 'no-cache'})
+    with urllib.request.urlopen(req, timeout=30) as r: return json.loads(r.read())
+
+
+def report_missing_weekly(now):
+    """2026-11-23: 주간 동향이 늦게(08:48) 발표돼, 그 전(08:31)에 만든 성적표의 '이번 주 가격 흐름'이 하루 종일 비었음.
+    오늘 만든 성적표(report/index.json date=오늘)에 주간 동향 주(wk.w)가 없거나 발표된 최신 주와 다르면 True(다시 만듦). 확인 실패면 False(평소대로)."""
+    try:
+        R, W = pub_json('data/report/index.json'), pub_json('data/weekly/index.json')
+        latest = W.get('latest'); wk = next((x for x in (W.get('weeks') or []) if x.get('w') == latest), None)
+        if not latest or not wk or R.get('date') != now.date().isoformat(): return False
+        rel = datetime.datetime.fromisoformat(str(wk.get('first_release') or wk.get('release'))).astimezone(KST)
+        if rel > now or rel.date() != now.date(): return False        # 오늘 발표된 주만(지난주 판을 다시 넣으려고 돌지 않음)
+        return ((R.get('wk') or {}).get('w')) != latest
+    except Exception as e:
+        print(f'성적표·주간 동향 비교 실패({type(e).__name__}) → 평소대로'); return False
+
+
 # ---------- guard ----------
 def cmd_guard(name):
     cfg, now = WF[name], now_kst()
@@ -117,6 +136,10 @@ def cmd_guard(name):
                 if str(r['id']) != me and r.get('status') == 'completed' and r.get('conclusion') == 'success' and real(r)]
     except Exception as e:
         print(f'::warning::지난 실행 확인 실패({type(e).__name__}: {e}) → 그냥 진행')
+        return gh_out(run='true')
+    if done and name == 'report' and report_missing_weekly(now):
+        msg = '오늘 성적표는 이미 만들었지만 그 뒤에 이번 주 주간 동향이 발표돼 \'이번 주 가격 흐름\'이 비어 있음 → 다시 만듦'
+        print(msg); summary(msg)
         return gh_out(run='true')
     if done:
         r = done[0]

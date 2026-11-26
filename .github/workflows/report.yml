@@ -12,6 +12,8 @@ on:
     - cron: '30 21 * * 0'     # 월 06:30
     - cron: '52 22 * * 0'     # 월 07:52 (예비 — 7시 전에 못 만들었으면 바로 공개)
     - cron: '22 0 * * 1'      # 월 09:22
+    - cron: '52 1 * * 1'      # 월 10:52 (주간 동향이 늦게 발표된 날 — 이미 만든 성적표에 '이번 주 가격 흐름'이 비어 있으면 다시 만듦, sched.py report_missing_weekly)
+    - cron: '52 3 * * 1'      # 월 12:52 (같은 이유 예비)
   workflow_dispatch:
 permissions:
   contents: read
