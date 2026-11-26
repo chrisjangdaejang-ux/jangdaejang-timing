@@ -1,1 +1,1 @@
-{"k":"kosis_rate","status":"notRegistered","reason":"ECOS_KEY 없음 — KOSIS 에는 한국은행 금리 표가 없음(한국은행 ECOS 인증키, 선택)","at":"2026-11-26T22:32","wf":"실거래 수집 및 사이트 갱신","run":"45783726412","every_h":24,"label":"기준금리·주담대 금리","screens":"오피스텔 금리 비교"}
+{"k":"kosis_rate","status":"notRegistered","reason":"ECOS_KEY 없음 — KOSIS 에는 한국은행 금리 표가 없음(한국은행 ECOS 인증키, 선택)","at":"2026-11-27T01:49","wf":"실거래 수집 및 사이트 갱신","run":"45829722257","every_h":24,"label":"기준금리·주담대 금리","screens":"오피스텔 금리 비교"}
