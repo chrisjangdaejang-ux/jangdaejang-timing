@@ -1,6 +1,6 @@
 name: 검색용 페이지·사이트맵 (매일)
-# 엔진 scripts/seo_pages.py — 공개 데이터(jangdaejang-data gh-pages 의 data/price·index·좌표·청약 공고)만 읽어
-#  웹 저장소 jangdaejang-calc 에 단지·시군구·청약 공고 정적 페이지(apt/·cy/), sitemap.xml·sitemaps/, robots.txt 를 만들고 main 에 올린다.
+# 엔진 scripts/seo_pages.py — 공개 데이터(jangdaejang-data gh-pages 의 data/price·index·좌표·청약 공고·재개발 구역 redev/zones.json)만 읽어
+#  웹 저장소 jangdaejang-calc 에 단지·시군구·청약 공고·재개발 구역 정적 페이지(apt/·cy/·villa/z/), sitemap.xml·sitemaps/, robots.txt 를 만들고 main 에 올린다.
 #  · 사이트 주소·서비스 이름·검색 등록 확인 코드는 jangdaejang-calc assets/config.js 의 SITE_URL·SITE_NAME·SITE_VERIFY_* 한 곳에서 읽는다.
 #  · 바뀐 파일만 올라간다(실행 날짜를 페이지에 넣지 않음 — 새 거래가 있는 단지만 바뀜).
 #  · jangdaejang-calc 에 올리려면 PUBLISH_TOKEN 에 jangdaejang-calc 쓰기 권한이 있어야 한다(없으면 마지막 단계에서 안내 문구만 남기고 끝남).
@@ -47,7 +47,7 @@ jobs:
       - name: 공개 데이터 받기 (시세·자료 기간·좌표·청약 공고만)
         run: |
           git clone -q --depth 1 --filter=blob:none --sparse -b gh-pages https://github.com/chrisjangdaejang-ux/jangdaejang-data.git pub
-          cd pub && git sparse-checkout set --no-cone '/data/index.json' '/data/s*_xy.json' '/data/price/[0-9]*.json' '/data/chungyak/notices.json' '/data/comm/*.json'
+          cd pub && git sparse-checkout set --no-cone '/data/index.json' '/data/s*_xy.json' '/data/price/[0-9]*.json' '/data/chungyak/notices.json' '/data/comm/*.json' '/data/redev/zones.json'
           ls data/price | wc -l
       - name: 웹 저장소 받기
         env:
@@ -61,7 +61,7 @@ jobs:
       - name: 웹 저장소에 올리기
         run: |
           cd calc
-          for p in apt cy comm sitemaps sitemap.xml robots.txt index.html manifest.webmanifest; do if [ -e "$p" ]; then git add -A "$p"; fi; done   # 없는 경로(예: comm)가 있어도 멈추지 않게
+          for p in apt cy comm villa/z sitemaps sitemap.xml robots.txt index.html manifest.webmanifest; do if [ -e "$p" ]; then git add -A "$p"; fi; done   # 없는 경로(예: comm)가 있어도 멈추지 않게
           git add -u                                   # 주소를 바꾼 날(SITE_URL 변경) 고친 화면들
           if git diff --cached --quiet; then echo "바뀐 페이지 없음"; exit 0; fi
           git -c user.name=jangdaejang-bot -c user.email=actions@users.noreply.github.com commit -qm "검색용 페이지·사이트맵 $(date -u +%F)"
