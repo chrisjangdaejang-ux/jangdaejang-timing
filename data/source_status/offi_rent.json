@@ -1,1 +1,1 @@
-{"k":"offi_rent","status":"ok","reason":"","at":"2026-11-27T17:36","wf":"실거래 수집 및 사이트 갱신","run":"45963364063","every_h":6,"label":"오피스텔 전월세 실거래(국토부)","screens":"오피스텔 화면 임대 수익","calls":2400,"done":2399,"left":1706,"last_ok":"2026-11-27T17:36"}
+{"k":"offi_rent","status":"failed","reason":"resultCode 999","at":"2026-11-27T21:17","wf":"실거래 수집 및 사이트 갱신","run":"45967914927","every_h":6,"label":"오피스텔 전월세 실거래(국토부)","screens":"오피스텔 화면 임대 수익","last_ok":"2026-11-27T07:02"}
