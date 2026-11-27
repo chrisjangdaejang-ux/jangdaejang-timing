@@ -1,6 +1,6 @@
-2026-11-27 trade done=768 left=0 calls=768 from=200601 target=200601 missing=0 eta=2026-11-27
-2026-11-27 rent done=0 left=0 calls=0 from=201101 target=201101 missing=0 eta=2026-11-27
-2026-11-27 villa done=0 left=0 calls=0 from=201001 target=201001 missing=0 eta=2026-11-27
+2026-11-28 trade done=0 left=768 calls=768 from=200601 target=200601 missing=0 eta=2026-11-28
+2026-11-28 rent done=0 left=0 calls=0 from=201101 target=201101 missing=0 eta=2026-11-28
+2026-11-28 villa done=0 left=1024 calls=1024 from=201001 target=201001 missing=0 eta=2026-11-28
 2026-11-27 rh_rent done=418 left=3742 calls=2400 from=201204 target=201101 missing=3742 eta=2026-11-30
 2026-11-27 sh_rent done=0 left=None calls=1 from=201206 target=201101 missing=4346 eta=2026-11-28
 2026-11-27 offi_rent done=0 left=None calls=1 from=201206 target=201101 missing=4105 eta=2026-11-28
@@ -9,5 +9,6 @@
 2026-11-27 land_trade done=0 left=None calls=1 from=201507 target=200601 missing=29145 eta=2026-12-01
 2026-11-27 sh_trade done=0 left=None calls=1 from=201304 target=201101 missing=6835 eta=2026-11-28
 2026-11-27 silv_trade done=0 left=None calls=1 from=202506 target=201901 missing=19522 eta=2026-11-30
+2026-11-27 indu_trade done=0 left=None calls=1
 2026-11-27 lh_notice done=168 left=None calls=12
 2026-11-27 hf_rate done=15 left=None calls=2
