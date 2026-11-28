@@ -1,1 +1,1 @@
-{"k":"kosis_housing_supply","status":"skipped","reason":"시군구 표 없음(KOSIS 는 시·도 단위만) {'pmt': 0, 'stt': 0, 'cmp': 0}","at":"2026-11-28T16:17","wf":"실거래 수집 및 사이트 갱신","run":"46116980666","every_h":24,"label":"KOSIS 시군구 주택 인허가·착공·준공","screens":"(시군구 표 없음 — 화면 없음)"}
+{"k":"kosis_housing_supply","status":"skipped","reason":"시군구 표 없음(KOSIS 는 시·도 단위만) {'pmt': 0, 'stt': 0, 'cmp': 0}","at":"2026-11-28T18:31","wf":"실거래 수집 및 사이트 갱신","run":"46123525004","every_h":24,"label":"KOSIS 시군구 주택 인허가·착공·준공","screens":"(시군구 표 없음 — 화면 없음)"}
