@@ -1,1 +1,1 @@
-{"k":"sh_rent","status":"failed","reason":"resultCode ","at":"2026-11-28T06:37","wf":"실거래 수집 및 사이트 갱신","run":"46070083315","every_h":6,"label":"단독·다가구 전월세 실거래(국토부)","screens":"전월세(단독·다가구) 화면","last_ok":"2026-11-27T07:21"}
+{"k":"sh_rent","status":"failed","reason":"resultCode ","at":"2026-11-28T15:43","wf":"실거래 수집 및 사이트 갱신","run":"46116980666","every_h":6,"label":"단독·다가구 전월세 실거래(국토부)","screens":"전월세(단독·다가구) 화면","last_ok":"2026-11-27T07:21"}

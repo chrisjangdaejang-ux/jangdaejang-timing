@@ -9,6 +9,6 @@
 2026-11-28 land_trade done=0 left=None calls=1 from=201507 target=200601 missing=29145 eta=2026-12-01
 2026-11-28 sh_trade done=0 left=None calls=1 from=201304 target=201101 missing=6835 eta=2026-11-28
 2026-11-28 silv_trade done=0 left=None calls=1 from=202506 target=201901 missing=19522 eta=2026-11-30
-2026-11-27 indu_trade done=0 left=None calls=1
+2026-11-28 indu_trade done=0 left=None calls=1
 2026-11-28 lh_notice done=168 left=None calls=4
 2026-11-28 hf_rate done=15 left=None calls=2
